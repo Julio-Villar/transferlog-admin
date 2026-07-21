@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TransferLog · Admin</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ── Reset & variables ─────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#185FA5; --blue-l:#E6F1FB; --blue-d:#0E3E6E;
+  --teal:#0F6E56; --teal-l:#E1F5EE;
+  --red:#A32D2D;  --red-l:#FCEBEB;
+  --amber:#7C4E00; --amber-l:#FEF3CD;
+  --text:#1a1a1a; --text2:#6b6b6b; --text3:#9b9b9b;
+  --bg:#F0F2F5; --bgw:#ffffff; --bgs:#F8F9FA;
+  --border:1px solid #e4e4e7;
+  --rad:10px; --rsm:6px;
+  --sidebar:220px;
+  --shadow:0 1px 4px rgba(0,0,0,.07);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── Auth overlay ──────────────────────────────────────── */
+#auth-overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:999;align-items:center;justify-content:center}
+#auth-overlay.show{display:flex}
+.auth-card{background:var(--bgw);border:var(--border);border-radius:var(--rad);padding:36px 32px;width:360px;box-shadow:var(--shadow)}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.auth-logo .logo-icon{width:38px;height:38px;background:var(--blue);border-radius:var(--rsm);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px}
+.auth-logo h1{font-size:18px;font-weight:700;color:var(--text)}
+.auth-logo p{font-size:11px;color:var(--text2);margin-top:1px}
+.auth-badge{display:inline-block;background:var(--blue-l);color:var(--blue);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-bottom:20px;letter-spacing:.5px}
+.auth-card .field{margin-bottom:14px}
+.auth-card label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.auth-card input{width:100%;padding:9px 11px;font-size:14px;border:var(--border);border-radius:var(--rsm);background:var(--bgw);color:var(--text);font-family:inherit}
+.auth-card input:focus{outline:none;border-color:var(--blue)}
+.auth-err{font-size:12px;color:var(--red);margin-top:10px;text-align:center;min-height:16px}
+
+/* ── Layout ────────────────────────────────────────────── */
+.layout{display:flex;min-height:100vh}
+
+/* ── Sidebar ───────────────────────────────────────────── */
+.sidebar{
+  width:var(--sidebar);flex-shrink:0;
+  background:var(--blue-d);
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;bottom:0;
+  z-index:50;
+}
+.sidebar-logo{
+  padding:20px 18px 14px;
+  display:flex;align-items:center;gap:10px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.sidebar-logo .logo-icon{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:var(--rsm);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
+.sidebar-logo h2{font-size:14px;font-weight:700;color:#fff}
+.sidebar-logo p{font-size:10px;color:rgba(255,255,255,.45)}
+.sidebar-nav{flex:1;padding:10px 0;overflow-y:auto}
+.snav-section{font-size:10px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:.8px;text-transform:uppercase;padding:14px 18px 4px}
+.snav-btn{
+  display:flex;align-items:center;gap:10px;
+  width:100%;padding:9px 18px;
+  font-size:13px;font-weight:400;
+  border:none;background:transparent;color:rgba(255,255,255,.65);
+  cursor:pointer;font-family:inherit;text-align:left;
+  border-left:3px solid transparent;
+  transition:all .12s;
+}
+.snav-btn i{font-size:17px;flex-shrink:0}
+.snav-btn:hover{color:#fff;background:rgba(255,255,255,.06)}
+.snav-btn.active{color:#fff;background:rgba(255,255,255,.1);border-left-color:#fff;font-weight:500}
+.sidebar-footer{
+  padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);
+  display:flex;flex-direction:column;gap:6px;
+}
+.user-info{font-size:11px;color:rgba(255,255,255,.5);word-break:break-all}
+.user-info strong{color:rgba(255,255,255,.85);display:block;font-size:12px;margin-bottom:1px}
+.btn-out{display:flex;align-items:center;gap:6px;padding:7px 0;font-size:12px;font-weight:500;color:rgba(255,255,255,.5);background:none;border:none;cursor:pointer;font-family:inherit;transition:color .12s}
+.btn-out:hover{color:#fff}
+
+/* ── Main area ─────────────────────────────────────────── */
+.main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{
+  background:var(--bgw);border-bottom:var(--border);
+  padding:0 28px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:30;box-shadow:var(--shadow);
+}
+.topbar-title{font-size:16px;font-weight:600;color:var(--text)}
+.topbar-sub{font-size:12px;color:var(--text2);margin-top:1px}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+.content{padding:24px 28px;flex:1}
+.page{display:none}.page.active{display:block}
+
+/* ── Componentes UI ────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;font-weight:500;border:var(--border);border-radius:var(--rsm);background:var(--bgw);color:var(--text);cursor:pointer;font-family:inherit;transition:all .12s;white-space:nowrap}
+.btn:hover{border-color:#aaa}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn.primary:hover{background:#1450880}
+.btn.danger{color:var(--red);border-color:#f5b0b0}
+.btn.danger:hover{background:var(--red-l)}
+.btn.sm{padding:5px 10px;font-size:11px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--bgs)}
+
+.card{background:var(--bgw);border:var(--border);border-radius:var(--rad);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* Stats grid */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.stat-card{background:var(--bgw);border:var(--border);border-radius:var(--rad);padding:18px 20px;box-shadow:var(--shadow)}
+.stat-icon{width:36px;height:36px;border-radius:var(--rsm);display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px}
+.stat-icon.blue{background:var(--blue-l);color:var(--blue)}
+.stat-icon.teal{background:var(--teal-l);color:var(--teal)}
+.stat-icon.amber{background:var(--amber-l);color:var(--amber)}
+.stat-icon.red{background:var(--red-l);color:var(--red)}
+.stat-val{font-size:26px;font-weight:700;color:var(--text);line-height:1}
+.stat-label{font-size:12px;color:var(--text2);margin-top:4px}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* 2 col grid */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+/* Table */
+.tbl-wrap{overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+table.tbl th{text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;padding:8px 12px;border-bottom:var(--border);white-space:nowrap}
+table.tbl td{padding:10px 12px;border-bottom:var(--border);color:var(--text);vertical-align:middle}
+table.tbl tr:last-child td{border-bottom:none}
+table.tbl tr:hover td{background:var(--bgs)}
+table.tbl td.muted{color:var(--text2);font-size:12px}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.green{background:var(--teal-l);color:var(--teal)}
+.badge.blue{background:var(--blue-l);color:var(--blue)}
+.badge.red{background:var(--red-l);color:var(--red)}
+.badge.amber{background:var(--amber-l);color:var(--amber)}
+.badge.gray{background:#f0f0f0;color:#666}
+
+/* Form */
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;padding:8px 11px;font-size:13px;border:var(--border);border-radius:var(--rsm);background:var(--bgw);color:var(--text);font-family:inherit}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--blue)}
+.field textarea{resize:vertical;min-height:70px}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* Modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--bgw);border-radius:var(--rad);padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-size:16px;font-weight:600;color:var(--text)}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);line-height:1;padding:2px}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:var(--border)}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;right:28px;background:var(--text);color:#fff;padding:10px 18px;border-radius:var(--rsm);font-size:13px;font-weight:500;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:300px}
+.toast.show{display:block}
+.toast.ok{background:var(--teal)}
+.toast.err{background:var(--red)}
+
+/* Chart bar */
+.bar-chart{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:10px;font-size:12px}
+.bar-label{width:80px;color:var(--text2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.bar-track{flex:1;background:var(--bg);border-radius:4px;height:10px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;background:var(--blue);transition:width .4s ease}
+.bar-fill.teal{background:var(--teal)}
+.bar-val{width:70px;font-size:11px;color:var(--text2);text-align:right;flex-shrink:0}
+
+/* Misc */
+.empty-state{text-align:center;padding:40px;color:var(--text2);font-size:13px}
+.empty-state i{font-size:40px;display:block;margin-bottom:10px;opacity:.3}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.1);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sep{height:12px}
+.text-muted{color:var(--text2);font-size:12px}
+.flex-between{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.flex-end{display:flex;justify-content:flex-end;gap:8px}
+.mt8{margin-top:8px}
+.pill-row{display:flex;gap:6px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<!-- ── Auth overlay ──────────────────────────────────── -->
+<div id="auth-overlay" class="show">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-icon"><i class="ti ti-bus"></i></div>
+      <div><h1>TransferLog</h1><p>Panel de administración</p></div>
+    </div>
+    <div><span class="auth-badge">ADMIN</span></div>
+    <div class="field"><label>Correo electrónico</label><input type="email" id="a-email" placeholder="admin@empresa.com" autocomplete="email"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="a-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
+    <button class="btn primary" style="width:100%;justify-content:center" id="a-btn" onclick="doAdminLogin()"><i class="ti ti-login"></i> Ingresar como admin</button>
+    <div class="auth-err" id="a-err"></div>
+  </div>
+</div>
+
+<!-- ── Layout ────────────────────────────────────────── -->
+<div class="layout" id="app-layout" style="display:none">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><i class="ti ti-bus"></i></div>
+      <div><h2>TransferLog</h2><p>Panel Admin</p></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="snav-section">General</div>
+      <button class="snav-btn active" onclick="goTo('dashboard')" id="nav-dashboard"><i class="ti ti-dashboard"></i>Dashboard</button>
+      <div class="snav-section">Gestión</div>
+      <button class="snav-btn" onclick="goTo('usuarios')" id="nav-usuarios"><i class="ti ti-users"></i>Usuarios</button>
+      <button class="snav-btn" onclick="goTo('rutas')" id="nav-rutas"><i class="ti ti-map-pin"></i>Rutas globales</button>
+      <button class="snav-btn" onclick="goTo('recibos')" id="nav-recibos"><i class="ti ti-file-text"></i>Todos los recibos</button>
+      <div class="snav-section">Estadísticas</div>
+      <button class="snav-btn" onclick="goTo('estadisticas')" id="nav-estadisticas"><i class="ti ti-chart-bar"></i>Estadísticas</button>
+      <button class="snav-btn" onclick="goTo('reportes')" id="nav-reportes"><i class="ti ti-file-download"></i>Reportes PDF</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info"><strong id="sb-email">—</strong>Administrador</div>
+      <button class="btn-out" onclick="adminLogout()"><i class="ti ti-logout"></i> Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title" id="page-title">Dashboard</div>
+        <div class="topbar-sub" id="page-sub">Resumen general del sistema</div>
+      </div>
+      <div class="topbar-actions">
+        <span id="sync-badge" class="badge blue" style="display:none"><span class="spin" style="border-top-color:#185FA5"></span> Cargando...</span>
+        <button class="btn sm ghost" onclick="refreshCurrentPage()"><i class="ti ti-refresh"></i> Actualizar</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ── DASHBOARD ─────────────────────────────── -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid" id="dash-stats">
+          <div class="stat-card"><div class="stat-icon blue"><i class="ti ti-users"></i></div><div class="stat-val" id="st-users">—</div><div class="stat-label">Usuarios activos</div></div>
+          <div class="stat-card"><div class="stat-icon teal"><i class="ti ti-file-text"></i></div><div class="stat-val" id="st-recibos">—</div><div class="stat-label">Recibos totales</div><div class="stat-sub" id="st-mes">este mes</div></div>
+          <div class="stat-card"><div class="stat-icon amber"><i class="ti ti-cash"></i></div><div class="stat-val" id="st-monto">—</div><div class="stat-label">Facturado total</div></div>
+          <div class="stat-card"><div class="stat-icon red"><i class="ti ti-map-pin"></i></div><div class="stat-val" id="st-rutas">—</div><div class="stat-label">Rutas registradas</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <div class="card-title">Recibos por vehículo</div>
+            <div class="bar-chart" id="dash-veh-chart"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Top usuarios por monto</div>
+            <div class="bar-chart" id="dash-user-chart"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Últimos 10 recibos</div>
+          <div class="tbl-wrap"><table class="tbl" id="dash-recent"><thead><tr><th>#</th><th>Fecha</th><th>Usuario</th><th>Vehículo</th><th>Ruta</th><th>Detalle</th><th>Total</th></tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- ── USUARIOS ───────────────────────────────── -->
+      <div class="page" id="page-usuarios">
+        <div class="flex-between" style="margin-bottom:16px">
+          <div class="text-muted" id="users-count">—</div>
+          <button class="btn primary" onclick="openCreateUser()"><i class="ti ti-plus"></i> Crear usuario</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="tbl-wrap">
+            <table class="tbl" id="users-table">
+              <thead><tr><th>Correo</th><th>Rol</th><th>Creado</th><th>Recibos</th><th>Monto total</th><th>Acciones</th></tr></thead>
+              <tbody id="users-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── RUTAS GLOBALES ─────────────────────────── -->
+      <div class="page" id="page-rutas">
+        <div class="flex-between" style="margin-bottom:16px">
+          <div class="text-muted" id="routes-count">—</div>
+          <button class="btn primary" onclick="openCreateRoute()"><i class="ti ti-plus"></i> Agregar ruta</button>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="tbl-wrap">
+            <table class="tbl" id="routes-table">
+              <thead><tr><th>Origen</th><th>Destino</th><th>Valor ($)</th><th>Usuario</th><th>Creada</th><th>Acciones</th></tr></thead>
+              <tbody id="routes-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TODOS LOS RECIBOS ──────────────────────── -->
+      <div class="page" id="page-recibos">
+        <div class="card" style="padding:14px 16px;margin-bottom:16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="field" style="margin:0;flex:1;min-width:120px"><label>Desde</label><input type="date" id="r-from"></div>
+            <div class="field" style="margin:0;flex:1;min-width:120px"><label>Hasta</label><input type="date" id="r-to"></div>
+            <div class="field" style="margin:0;flex:1;min-width:140px"><label>Vehículo</label>
+              <select id="r-veh"><option value="">Todos</option><option>Auto</option><option>Furgón</option><option>Sprinter</option><option>Bus</option></select>
+            </div>
+            <button class="btn" onclick="loadRecibos()"><i class="ti ti-filter"></i> Filtrar</button>
+          </div>
+        </div>
+        <div class="flex-between" style="margin-bottom:12px">
+          <div class="text-muted" id="recibos-count">—</div>
+          <div class="flex-end">
+            <span id="recibos-total" style="font-weight:600;font-size:14px;color:var(--blue)"></span>
+          </div>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>#</th><th>Fecha</th><th>Usuario</th><th>Chofer</th><th>Vehículo</th><th>Ruta</th><th>Empresa</th><th>Detalle</th><th>Total</th><th></th></tr></thead>
+              <tbody id="recibos-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ESTADÍSTICAS ───────────────────────────── -->
+      <div class="page" id="page-estadisticas">
+        <div class="card" style="padding:14px 16px;margin-bottom:20px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="field" style="margin:0;flex:1;min-width:130px"><label>Desde</label><input type="date" id="e-from"></div>
+            <div class="field" style="margin:0;flex:1;min-width:130px"><label>Hasta</label><input type="date" id="e-to"></div>
+            <button class="btn primary" onclick="loadEstadisticas()"><i class="ti ti-chart-bar"></i> Calcular</button>
+          </div>
+        </div>
+        <div class="stats-grid" id="est-stats">
+          <div class="stat-card"><div class="stat-icon blue"><i class="ti ti-file-text"></i></div><div class="stat-val" id="es-total">—</div><div class="stat-label">Total recibos</div></div>
+          <div class="stat-card"><div class="stat-icon teal"><i class="ti ti-cash"></i></div><div class="stat-val" id="es-monto">—</div><div class="stat-label">Monto total</div></div>
+          <div class="stat-card"><div class="stat-icon amber"><i class="ti ti-calculator"></i></div><div class="stat-val" id="es-prom">—</div><div class="stat-label">Promedio por recibo</div></div>
+          <div class="stat-card"><div class="stat-icon red"><i class="ti ti-users"></i></div><div class="stat-val" id="es-users">—</div><div class="stat-label">Usuarios activos</div></div>
+        </div>
+        <div class="grid2">
+          <div class="card"><div class="card-title">Por tipo de vehículo</div><div class="bar-chart" id="est-veh"></div></div>
+          <div class="card"><div class="card-title">Por empresa</div><div class="bar-chart" id="est-emp"></div></div>
+        </div>
+        <div class="grid2">
+          <div class="card"><div class="card-title">Por chofer</div><div class="bar-chart" id="est-chofer"></div></div>
+          <div class="card"><div class="card-title">Por usuario</div><div class="bar-chart" id="est-user"></div></div>
+        </div>
+        <div class="card"><div class="card-title">Evolución mensual (monto)</div><div class="bar-chart" id="est-mes"></div></div>
+      </div>
+
+      <!-- ── REPORTES PDF ───────────────────────────── -->
+      <div class="page" id="page-reportes">
+        <div class="grid2">
+          <div class="card">
+            <div class="card-title">Reporte general</div>
+            <p class="text-muted" style="margin-bottom:14px">Exporta todos los recibos del período seleccionado en un PDF con tabla completa y totales.</p>
+            <div class="field"><label>Desde</label><input type="date" id="rp-from"></div>
+            <div class="field"><label>Hasta</label><input type="date" id="rp-to"></div>
+            <div class="field"><label>Vehículo (opcional)</label>
+              <select id="rp-veh"><option value="">Todos</option><option>Auto</option><option>Furgón</option><option>Sprinter</option><option>Bus</option></select>
+            </div>
+            <button class="btn primary" style="width:100%;justify-content:center" onclick="exportGeneralPDF()"><i class="ti ti-file-download"></i> Exportar PDF general</button>
+          </div>
+          <div class="card">
+            <div class="card-title">Reporte por usuario</div>
+            <p class="text-muted" style="margin-bottom:14px">Exporta el resumen de un usuario específico con sus recibos y estadísticas personales.</p>
+            <div class="field"><label>Desde</label><input type="date" id="ru-from"></div>
+            <div class="field"><label>Hasta</label><input type="date" id="ru-to"></div>
+            <div class="field"><label>Usuario</label><select id="ru-user"><option value="">— Seleccionar usuario —</option></select></div>
+            <button class="btn primary" style="width:100%;justify-content:center" onclick="exportUserPDF()"><i class="ti ti-file-download"></i> Exportar PDF por usuario</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Reporte por empresa / chofer</div>
+          <div class="r2">
+            <div>
+              <div class="field"><label>Desde</label><input type="date" id="re-from"></div>
+              <div class="field"><label>Hasta</label><input type="date" id="re-to"></div>
+            </div>
+            <div>
+              <div class="field"><label>Agrupar por</label>
+                <select id="re-group">
+                  <option value="empresa">Empresa</option>
+                  <option value="chofer">Chofer</option>
+                  <option value="vehiculo">Tipo de vehículo</option>
+                </select>
+              </div>
+              <button class="btn green mt8" style="width:100%;justify-content:center" onclick="exportGroupPDF()"><i class="ti ti-file-download"></i> Exportar PDF agrupado</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<!-- ── Modales ────────────────────────────────────────── -->
+
+<!-- Crear usuario -->
+<div class="overlay" id="modal-create-user">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Crear usuario</span>
+      <button class="modal-close" onclick="closeModal('modal-create-user')">×</button>
+    </div>
+    <div class="field"><label>Correo electrónico</label><input type="email" id="nu-email" placeholder="correo@empresa.com"></div>
+    <div class="field"><label>Contraseña temporal</label><input type="text" id="nu-pass" placeholder="Mínimo 6 caracteres"></div>
+    <div class="field">
+      <label>Rol</label>
+      <select id="nu-role">
+        <option value="operador">Operador (acceso básico)</option>
+        <option value="supervisor">Supervisor (puede ver todos los recibos)</option>
+        <option value="admin">Administrador</option>
+      </select>
+    </div>
+    <div id="nu-err" style="font-size:12px;color:var(--red);min-height:16px"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-create-user')">Cancelar</button>
+      <button class="btn primary" id="nu-btn" onclick="createUser()"><i class="ti ti-user-plus"></i> Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- Editar usuario -->
+<div class="overlay" id="modal-edit-user">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Editar usuario</span>
+      <button class="modal-close" onclick="closeModal('modal-edit-user')">×</button>
+    </div>
+    <div id="eu-email-disp" style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:14px"></div>
+    <div class="field">
+      <label>Rol</label>
+      <select id="eu-role">
+        <option value="operador">Operador</option>
+        <option value="supervisor">Supervisor</option>
+        <option value="admin">Administrador</option>
+      </select>
+    </div>
+    <div class="field"><label>Nueva contraseña (dejar en blanco para no cambiar)</label><input type="password" id="eu-pass" placeholder="Nueva contraseña"></div>
+    <div id="eu-err" style="font-size:12px;color:var(--red);min-height:16px"></div>
+    <div class="modal-footer">
+      <button class="btn danger" onclick="confirmDeleteUser()">Eliminar usuario</button>
+      <button class="btn" onclick="closeModal('modal-edit-user')">Cancelar</button>
+      <button class="btn primary" id="eu-btn" onclick="updateUser()"><i class="ti ti-check"></i> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Crear ruta -->
+<div class="overlay" id="modal-create-route">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Agregar ruta global</span>
+      <button class="modal-close" onclick="closeModal('modal-create-route')">×</button>
+    </div>
+    <div class="r2">
+      <div class="field"><label>Origen</label><input type="text" id="nr-origen" placeholder="Ej: Puerto"></div>
+      <div class="field"><label>Destino</label><input type="text" id="nr-destino" placeholder="Ej: Aeropuerto"></div>
+    </div>
+    <div class="field"><label>Valor en pesos ($)</label><input type="number" id="nr-valor" placeholder="0" inputmode="numeric"></div>
+    <div class="field"><label>Asignar a usuario (opcional)</label><select id="nr-user"><option value="">— Todos los usuarios —</option></select></div>
+    <div id="nr-err" style="font-size:12px;color:var(--red);min-height:16px"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-create-route')">Cancelar</button>
+      <button class="btn primary" id="nr-btn" onclick="createRoute()"><i class="ti ti-plus"></i> Agregar ruta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ver recibo -->
+<div class="overlay" id="modal-recibo">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title" id="mr-title">Recibo</span>
+      <button class="modal-close" onclick="closeModal('modal-recibo')">×</button>
+    </div>
+    <div id="mr-body"></div>
+    <div class="modal-footer">
+      <button class="btn danger" id="mr-del" onclick="adminDeleteRecibo()"><i class="ti ti-trash"></i> Eliminar</button>
+      <button class="btn" onclick="closeModal('modal-recibo')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Config ────────────────────────────────────────────────
+const SB_URL  = 'https://luosbdpumkoqsfiwqjft.supabase.co';
+const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1b3NiZHB1bWtvcXNmaXdxamZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NzcwMjQsImV4cCI6MjA5NzQ1MzAyNH0.uqr2LcLICRxN6Galo8mqeeawzNk48_oS7S5WQmuZFwo';
+// Para operaciones admin (crear usuarios, leer todos los datos) necesitas la Service Role Key.
+// Agrégala aquí — mantén este archivo PRIVADO, nunca lo subas a un repo público.
+const SB_SERVICE = localStorage.getItem('tl_service_key') || '';
+
+const {jsPDF} = window.jspdf || {};
+const _sb = supabase.createClient(SB_URL, SB_ANON);
+
+let adminSession = null;
+let allUsers     = [];    // cache de usuarios
+let currentEditUserId = null;
+let currentReciboId   = null;
+
+// ── Auth ──────────────────────────────────────────────────
+async function doAdminLogin() {
+  const email = document.getElementById('a-email').value.trim();
+  const pass  = document.getElementById('a-pass').value;
+  const err   = document.getElementById('a-err');
+  const btn   = document.getElementById('a-btn');
+  err.textContent = '';
+  if (!email || !pass) { err.textContent = 'Ingresa correo y contraseña'; return; }
+  btn.innerHTML = '<span class="spin"></span> Ingresando...'; btn.disabled = true;
+
+  // Guardar service key si fue ingresada manualmente (primer uso)
+  const skInput = document.getElementById('a-service-key');
+  if (skInput && skInput.value.trim()) {
+    localStorage.setItem('tl_service_key', skInput.value.trim());
+    location.reload(); return;
+  }
+
+  const { data, error } = await _sb.auth.signInWithPassword({ email, password: pass });
+  btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
+  if (error) { err.textContent = 'Credenciales incorrectas'; return; }
+
+  // Verificar que sea admin en la tabla profiles
+  adminSession = data.session;
+  const profile = await adminFetch('profiles?user_id=eq.'+data.user.id+'&select=rol');
+  const rol = profile[0]?.rol;
+  if (rol !== 'admin' && rol !== 'supervisor') {
+    err.textContent = 'Tu cuenta no tiene permisos de administrador';
+    await _sb.auth.signOut(); adminSession = null; return;
+  }
+
+  document.getElementById('sb-email').textContent = data.user.email;
+  document.getElementById('auth-overlay').classList.remove('show');
+  document.getElementById('app-layout').style.display = 'flex';
+  initDateFilters();
+  loadDashboard();
+  loadUsersForSelects();
+}
+
+async function adminLogout() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  await _sb.auth.signOut();
+  adminSession = null;
+  document.getElementById('auth-overlay').classList.add('show');
+  document.getElementById('app-layout').style.display = 'none';
+}
+
+// ── REST helper con service key (admin bypass RLS) ────────
+async function adminFetch(path, opts = {}) {
+  // Usa service key si está disponible (bypass RLS), si no usa el JWT del usuario
+  const token = SB_SERVICE || adminSession?.access_token || SB_ANON;
+  const res = await fetch(SB_URL + '/rest/v1/' + path, {
+    ...opts,
+    headers: {
+      'apikey':        SB_SERVICE || SB_ANON,
+      'Authorization': 'Bearer ' + token,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=representation',
+      ...(opts.headers || {})
+    }
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(t); }
+  const t = await res.text(); return t ? JSON.parse(t) : [];
+}
+
+// Admin Auth API (requiere service key)
+async function adminAuthFetch(path, body) {
+  if (!SB_SERVICE) throw new Error('Se requiere la Service Role Key para esta operación. Configúrala en la sección de ajustes.');
+  const res = await fetch(SB_URL + '/auth/v1/admin/' + path, {
+    method: 'POST',
+    headers: { 'apikey': SB_SERVICE, 'Authorization': 'Bearer ' + SB_SERVICE, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(t); }
+  return res.json();
+}
+
+// ── UI helpers ────────────────────────────────────────────
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d); if (isNaN(dt)) { const [y,m,da]=d.split('-'); return `${da}/${m}/${y}`; }
+  return dt.toLocaleDateString('es-CL');
+}
+function fmtCLP(n) { return '$' + Number(n||0).toLocaleString('es-CL'); }
+function fmtK(n) { return n >= 1000000 ? '$'+(n/1000000).toFixed(1)+'M' : n >= 1000 ? '$'+(n/1000).toFixed(0)+'K' : fmtCLP(n); }
+function escH(v) { return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+function setBtnLoad(id, on, label) { const b=document.getElementById(id); if(!b) return; b.disabled=on; b.innerHTML=on?'<span class="spin"></span> Procesando...':label }
+function setSyncBadge(on) { document.getElementById('sync-badge').style.display = on ? '' : 'none' }
+function openModal(id)  { document.getElementById(id).classList.add('show') }
+function closeModal(id) { document.getElementById(id).classList.remove('show') }
+
+// Rol badge
+function rolBadge(rol) {
+  const map = { admin:'red', supervisor:'amber', operador:'blue' };
+  return `<span class="badge ${map[rol]||'gray'}">${rol||'sin rol'}</span>`;
+}
+// Veh badge
+function vehBadge(v) {
+  const map = { Auto:'blue', Furgón:'green', Sprinter:'amber', Bus:'red' };
+  return v ? `<span class="badge ${map[v]||'gray'}">${v}</span>` : '—';
+}
+
+// ── Navegación ────────────────────────────────────────────
+const PAGE_META = {
+  dashboard:    { title:'Dashboard',           sub:'Resumen general del sistema' },
+  usuarios:     { title:'Usuarios',            sub:'Gestión de cuentas y roles' },
+  rutas:        { title:'Rutas globales',      sub:'Rutas disponibles en la plataforma' },
+  recibos:      { title:'Todos los recibos',   sub:'Historial completo de servicios' },
+  estadisticas: { title:'Estadísticas',        sub:'Análisis por período, vehículo y usuario' },
+  reportes:     { title:'Reportes PDF',        sub:'Exportar datos en formato PDF' },
+};
+
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.snav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  const meta = PAGE_META[page] || {};
+  document.getElementById('page-title').textContent = meta.title || page;
+  document.getElementById('page-sub').textContent   = meta.sub   || '';
+  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, estadisticas: loadEstadisticas, reportes: ()=>{} };
+  if (loaders[page]) loaders[page]();
+}
+
+function refreshCurrentPage() {
+  const active = document.querySelector('.snav-btn.active');
+  if (active) { const id = active.id.replace('nav-',''); goTo(id); }
+}
+
+// ── Init fechas ───────────────────────────────────────────
+function initDateFilters() {
+  const today    = new Date().toISOString().split('T')[0];
+  const firstDay = today.substring(0,8) + '01';
+  ['r-from','e-from','rp-from','ru-from','re-from'].forEach(id => { const el=document.getElementById(id); if(el) el.value=firstDay });
+  ['r-to',  'e-to',  'rp-to',  'ru-to',  're-to' ].forEach(id => { const el=document.getElementById(id); if(el) el.value=today   });
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+async function loadDashboard() {
+  setSyncBadge(true);
+  try {
+    const [receipts, routes, profiles] = await Promise.all([
+      adminFetch('receipts?select=id,fecha,total,vehiculo,desde,hasta,empresa,detalle,chofer,user_id'),
+      adminFetch('routes?select=id'),
+      adminFetch('profiles?select=user_id,email,rol')
+    ]);
+
+    // Stats
+    document.getElementById('st-users').textContent   = profiles.length;
+    document.getElementById('st-recibos').textContent = receipts.length;
+    const monto = receipts.reduce((a,r)=>a+Number(r.total||0),0);
+    document.getElementById('st-monto').textContent   = fmtK(monto);
+    document.getElementById('st-rutas').textContent   = routes.length;
+
+    // Chart vehículos
+    const byVeh = {}; receipts.forEach(r=>{ const v=r.vehiculo||'Sin tipo'; byVeh[v]=(byVeh[v]||0)+Number(r.total||0); });
+    renderBarChart('dash-veh-chart', byVeh, true);
+
+    // Chart usuarios (top 5 por monto)
+    const byUser = {}; receipts.forEach(r=>{ if(r.user_id) byUser[r.user_id]=(byUser[r.user_id]||0)+Number(r.total||0); });
+    const emailMap = {}; profiles.forEach(p=>emailMap[p.user_id]=p.email);
+    const byUserLabeled = {}; Object.entries(byUser).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([uid,v])=>{ byUserLabeled[emailMap[uid]||uid.substring(0,8)]=v; });
+    renderBarChart('dash-user-chart', byUserLabeled, true);
+
+    // Últimos recibos
+    const recent = [...receipts].sort((a,b)=>b.fecha?.localeCompare(a.fecha||'')??0).slice(0,10);
+    const tbody = document.querySelector('#dash-recent tbody');
+    tbody.innerHTML = recent.length ? recent.map(r=>`
+      <tr>
+        <td>${r.id?.substring(0,6)||'—'}</td>
+        <td>${fmtDate(r.fecha)}</td>
+        <td class="muted">${escH(emailMap[r.user_id]||'—')}</td>
+        <td>${vehBadge(r.vehiculo)}</td>
+        <td class="muted">${escH(r.desde||'')} ${r.hasta?'→ '+escH(r.hasta):''}</td>
+        <td class="muted" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(r.detalle||'—')}</td>
+        <td style="font-weight:600;color:var(--blue)">${fmtCLP(r.total)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">Sin recibos aún</td></tr>';
+
+  } catch(e) { toast('Error al cargar dashboard: '+e.message, 'err'); }
+  setSyncBadge(false);
+}
+
+function renderBarChart(containerId, data, isMoney=false) {
+  const cont = document.getElementById(containerId); if(!cont) return;
+  const entries = Object.entries(data).sort((a,b)=>b[1]-a[1]);
+  if (!entries.length) { cont.innerHTML='<div class="text-muted">Sin datos</div>'; return; }
+  const max = entries[0][1] || 1;
+  cont.innerHTML = entries.map(([label, val], i)=>`
+    <div class="bar-row">
+      <div class="bar-label" title="${escH(label)}">${escH(label)}</div>
+      <div class="bar-track"><div class="bar-fill ${i===0?'':'teal'}" style="width:${Math.round(val/max*100)}%"></div></div>
+      <div class="bar-val">${isMoney ? fmtK(val) : val}</div>
+    </div>
+  `).join('');
+}
+
+// ── USUARIOS ──────────────────────────────────────────────
+async function loadUsers() {
+  setSyncBadge(true);
+  try {
+    const [profiles, receipts] = await Promise.all([
+      adminFetch('profiles?order=created_at.desc'),
+      adminFetch('receipts?select=user_id,total')
+    ]);
+    allUsers = profiles;
+
+    const receiptsByUser = {}; receipts.forEach(r=>{ if(r.user_id){ receiptsByUser[r.user_id]=receiptsByUser[r.user_id]||{count:0,total:0}; receiptsByUser[r.user_id].count++; receiptsByUser[r.user_id].total+=Number(r.total||0); } });
+
+    document.getElementById('users-count').textContent = profiles.length + ' usuarios registrados';
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = profiles.length ? profiles.map(p=>{
+      const stats = receiptsByUser[p.user_id]||{count:0,total:0};
+      return `<tr>
+        <td><strong>${escH(p.email||'—')}</strong></td>
+        <td>${rolBadge(p.rol)}</td>
+        <td class="muted">${fmtDate(p.created_at)}</td>
+        <td>${stats.count}</td>
+        <td style="font-weight:500">${fmtCLP(stats.total)}</td>
+        <td><button class="btn sm ghost" onclick="openEditUser('${p.user_id}')"><i class="ti ti-pencil"></i> Editar</button></td>
+      </tr>`}).join('')
+    : '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Sin usuarios</td></tr>';
+  } catch(e) { toast('Error: '+e.message,'err'); }
+  setSyncBadge(false);
+}
+
+function openCreateUser() {
+  document.getElementById('nu-email').value=''; document.getElementById('nu-pass').value='';
+  document.getElementById('nu-role').value='operador'; document.getElementById('nu-err').textContent='';
+  openModal('modal-create-user');
+}
+
+async function createUser() {
+  const email = document.getElementById('nu-email').value.trim();
+  const pass  = document.getElementById('nu-pass').value.trim();
+  const rol   = document.getElementById('nu-role').value;
+  const err   = document.getElementById('nu-err');
+  err.textContent='';
+  if (!email||!pass) { err.textContent='Completa todos los campos'; return; }
+  if (pass.length<6) { err.textContent='La contraseña debe tener al menos 6 caracteres'; return; }
+  setBtnLoad('nu-btn',true,'<i class="ti ti-user-plus"></i> Crear usuario');
+  try {
+    // Crear usuario vía Admin Auth API (requiere service key)
+    const userData = await adminAuthFetch('users', { email, password: pass, email_confirm: true });
+    const uid = userData.id;
+    // Crear perfil con rol
+    await adminFetch('profiles', { method:'POST', body:JSON.stringify({ user_id:uid, email, rol, created_at:new Date().toISOString() }) });
+    toast('Usuario creado ✓','ok'); closeModal('modal-create-user'); loadUsers();
+  } catch(e) {
+    if (e.message.includes('Service Role')) {
+      err.innerHTML = 'Necesitas configurar la <strong>Service Role Key</strong>.<br>Ve a Supabase → Settings → API → service_role key.';
+    } else { err.textContent = 'Error: '+e.message; }
+  }
+  setBtnLoad('nu-btn',false,'<i class="ti ti-user-plus"></i> Crear usuario');
+}
+
+function openEditUser(uid) {
+  const p = allUsers.find(u=>u.user_id===uid); if(!p) return;
+  currentEditUserId = uid;
+  document.getElementById('eu-email-disp').textContent = p.email||'—';
+  document.getElementById('eu-role').value = p.rol||'operador';
+  document.getElementById('eu-pass').value = '';
+  document.getElementById('eu-err').textContent = '';
+  openModal('modal-edit-user');
+}
+
+async function updateUser() {
+  const rol  = document.getElementById('eu-role').value;
+  const pass = document.getElementById('eu-pass').value.trim();
+  const err  = document.getElementById('eu-err');
+  err.textContent='';
+  setBtnLoad('eu-btn',true,'<i class="ti ti-check"></i> Guardar');
+  try {
+    await adminFetch('profiles?user_id=eq.'+currentEditUserId, { method:'PATCH', body:JSON.stringify({rol}) });
+    if (pass) {
+      if (pass.length<6) { err.textContent='La contraseña debe tener al menos 6 caracteres'; setBtnLoad('eu-btn',false,'<i class="ti ti-check"></i> Guardar'); return; }
+      await adminAuthFetch('users/'+currentEditUserId, {password:pass});
+    }
+    toast('Usuario actualizado ✓','ok'); closeModal('modal-edit-user'); loadUsers();
+  } catch(e) { err.textContent='Error: '+e.message; }
+  setBtnLoad('eu-btn',false,'<i class="ti ti-check"></i> Guardar');
+}
+
+async function confirmDeleteUser() {
+  if (!confirm('¿Eliminar este usuario y todos sus datos? Esta acción no se puede deshacer.')) return;
+  try {
+    await adminFetch('receipts?user_id=eq.'+currentEditUserId, { method:'DELETE' });
+    await adminFetch('routes?user_id=eq.'+currentEditUserId, { method:'DELETE' });
+    await adminFetch('profiles?user_id=eq.'+currentEditUserId, { method:'DELETE' });
+    await adminAuthFetch('users/'+currentEditUserId+'/delete', {});
+    toast('Usuario eliminado','ok'); closeModal('modal-edit-user'); loadUsers();
+  } catch(e) { toast('Error: '+e.message,'err'); }
+}
+
+async function loadUsersForSelects() {
+  try {
+    const profiles = await adminFetch('profiles?select=user_id,email&order=email.asc');
+    allUsers = profiles;
+    ['nr-user','ru-user'].forEach(id=>{
+      const sel=document.getElementById(id); if(!sel) return;
+      const cur=sel.value;
+      sel.innerHTML=(id==='nr-user'?'<option value="">— Todos los usuarios —</option>':'<option value="">— Seleccionar usuario —</option>');
+      profiles.forEach(p=>{ const o=document.createElement('option'); o.value=p.user_id; o.textContent=p.email||p.user_id; sel.appendChild(o); });
+      sel.value=cur;
+    });
+  } catch(e) {}
+}
+
+// ── RUTAS ─────────────────────────────────────────────────
+async function loadRoutes() {
+  setSyncBadge(true);
+  try {
+    const [routes, profiles] = await Promise.all([
+      adminFetch('routes?order=created_at.desc'),
+      adminFetch('profiles?select=user_id,email')
+    ]);
+    const emailMap={}; profiles.forEach(p=>emailMap[p.user_id]=p.email);
+    document.getElementById('routes-count').textContent = routes.length + ' rutas registradas';
+    const tbody=document.getElementById('routes-tbody');
+    tbody.innerHTML = routes.length ? routes.map(r=>`
+      <tr>
+        <td><strong>${escH(r.origen||'—')}</strong></td>
+        <td>${escH(r.destino||'—')}</td>
+        <td style="font-weight:600;color:var(--blue)">${fmtCLP(r.valor)}</td>
+        <td class="muted">${escH(emailMap[r.user_id]||'—')}</td>
+        <td class="muted">${fmtDate(r.created_at)}</td>
+        <td><button class="btn sm danger" onclick="deleteRoute('${r.id}')"><i class="ti ti-trash"></i></button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Sin rutas</td></tr>';
+  } catch(e) { toast('Error: '+e.message,'err'); }
+  setSyncBadge(false);
+}
+
+function openCreateRoute() {
+  ['nr-origen','nr-destino','nr-valor'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('nr-user').value=''; document.getElementById('nr-err').textContent='';
+  openModal('modal-create-route');
+}
+
+async function createRoute() {
+  const origen  = document.getElementById('nr-origen').value.trim();
+  const destino = document.getElementById('nr-destino').value.trim();
+  const valor   = document.getElementById('nr-valor').value;
+  const uid     = document.getElementById('nr-user').value;
+  const err     = document.getElementById('nr-err'); err.textContent='';
+  if(!origen||!destino||!valor) { err.textContent='Completa todos los campos'; return; }
+  setBtnLoad('nr-btn',true,'<i class="ti ti-plus"></i> Agregar ruta');
+  try {
+    const body = { origen, destino, valor:Number(valor), created_at:new Date().toISOString() };
+    if(uid) body.user_id=uid;
+    await adminFetch('routes',{method:'POST',body:JSON.stringify(body)});
+    toast('Ruta creada ✓','ok'); closeModal('modal-create-route'); loadRoutes();
+  } catch(e) { err.textContent='Error: '+e.message; }
+  setBtnLoad('nr-btn',false,'<i class="ti ti-plus"></i> Agregar ruta');
+}
+
+async function deleteRoute(id) {
+  if(!confirm('¿Eliminar esta ruta?')) return;
+  try { await adminFetch('routes?id=eq.'+id,{method:'DELETE'}); toast('Ruta eliminada','ok'); loadRoutes(); }
+  catch(e) { toast('Error: '+e.message,'err'); }
+}
+
+// ── RECIBOS ───────────────────────────────────────────────
+async function loadRecibos() {
+  setSyncBadge(true);
+  try {
+    const from = document.getElementById('r-from').value;
+    const to   = document.getElementById('r-to').value;
+    const veh  = document.getElementById('r-veh').value;
+    let q = 'receipts?order=fecha.desc,num.desc';
+    if(from) q+='&fecha=gte.'+from;
+    if(to)   q+='&fecha=lte.'+to;
+    if(veh)  q+='&vehiculo=eq.'+encodeURIComponent(veh);
+
+    const [receipts, profiles] = await Promise.all([
+      adminFetch(q), adminFetch('profiles?select=user_id,email')
+    ]);
+    const emailMap={}; profiles.forEach(p=>emailMap[p.user_id]=p.email);
+
+    const total = receipts.reduce((a,r)=>a+Number(r.total||0),0);
+    document.getElementById('recibos-count').textContent  = receipts.length + ' recibos';
+    document.getElementById('recibos-total').textContent  = 'Total: '+fmtCLP(total);
+
+    const tbody=document.getElementById('recibos-tbody');
+    tbody.innerHTML = receipts.length ? receipts.map(r=>`
+      <tr style="cursor:pointer" onclick="openRecibo('${r.id}')">
+        <td class="muted">#${r.num||'—'}</td>
+        <td>${fmtDate(r.fecha)}</td>
+        <td class="muted">${escH(emailMap[r.user_id]||'—')}</td>
+        <td>${escH(r.chofer||'—')}</td>
+        <td>${vehBadge(r.vehiculo)}</td>
+        <td class="muted">${escH(r.desde||'')}${r.hasta?' → '+escH(r.hasta):''}</td>
+        <td class="muted">${escH(r.empresa||'—')}</td>
+        <td class="muted" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(r.detalle||'—')}</td>
+        <td style="font-weight:600;color:var(--blue)">${fmtCLP(r.total)}</td>
+        <td><button class="btn sm ghost" onclick="event.stopPropagation();openRecibo('${r.id}')"><i class="ti ti-eye"></i></button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="10" class="muted" style="text-align:center;padding:24px">Sin recibos para ese período</td></tr>';
+  } catch(e) { toast('Error: '+e.message,'err'); }
+  setSyncBadge(false);
+}
+
+let _allRecibosCache=[];
+async function openRecibo(id) {
+  if(!_allRecibosCache.length) _allRecibosCache = await adminFetch('receipts?order=fecha.desc');
+  const r=_allRecibosCache.find(x=>x.id===id); if(!r) return;
+  currentReciboId=id;
+  document.getElementById('mr-title').textContent='Recibo #'+(r.num||'—');
+  const row=(l,v)=>v?`<tr><td style="color:var(--text2);font-size:12px;padding:4px 0;width:46%">${l}</td><td style="font-size:13px;padding:4px 0">${escH(String(v))}</td></tr>`:''
+  document.getElementById('mr-body').innerHTML=`
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
+      ${vehBadge(r.vehiculo)}
+      <span style="font-size:12px;color:var(--text2)">${fmtDate(r.fecha)}</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      ${row('Chofer',r.chofer)}${row('Área',r.area)}${row('Solicita',r.solicita)}
+      ${row('Empresa',r.empresa)}${row('Centro costo',r.costo)}
+      ${row('Desde',r.desde)}${row('Hasta',r.hasta)}
+      ${row('H. Inicio',r.hinicio)}${row('Tdo. Espera',r.espera)}${row('Fin servicio',r.fin)}
+      ${row('Paradas adicionales',r.paradas_adicionales)}
+    </table>
+    ${r.detalle?`<div style="margin-top:10px;font-size:12px;color:var(--text2);border-top:var(--border);padding-top:8px">${escH(r.detalle)}</div>`:''}
+    <div style="margin-top:10px;border-top:var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;font-weight:600">Total</span>
+      <span style="font-size:20px;font-weight:700;color:var(--blue)">${fmtCLP(r.total)}</span>
+    </div>`;
+  openModal('modal-recibo');
+}
+
+async function adminDeleteRecibo() {
+  if(!confirm('¿Eliminar este recibo?')) return;
+  try { await adminFetch('receipts?id=eq.'+currentReciboId,{method:'DELETE'}); toast('Recibo eliminado','ok'); closeModal('modal-recibo'); _allRecibosCache=[]; loadRecibos(); }
+  catch(e) { toast('Error: '+e.message,'err'); }
+}
+
+// ── ESTADÍSTICAS ──────────────────────────────────────────
+async function loadEstadisticas() {
+  setSyncBadge(true);
+  try {
+    const from = document.getElementById('e-from').value;
+    const to   = document.getElementById('e-to').value;
+    let q = 'receipts?select=*';
+    if(from) q+='&fecha=gte.'+from;
+    if(to)   q+='&fecha=lte.'+to;
+    const [receipts, profiles] = await Promise.all([
+      adminFetch(q), adminFetch('profiles?select=user_id,email')
+    ]);
+    const emailMap={}; profiles.forEach(p=>emailMap[p.user_id]=p.email);
+    const total = receipts.reduce((a,r)=>a+Number(r.total||0),0);
+    const users = new Set(receipts.map(r=>r.user_id).filter(Boolean)).size;
+    document.getElementById('es-total').textContent = receipts.length;
+    document.getElementById('es-monto').textContent = fmtK(total);
+    document.getElementById('es-prom').textContent  = receipts.length ? fmtK(total/receipts.length) : '—';
+    document.getElementById('es-users').textContent = users;
+
+    // Por vehículo (cantidad)
+    const byVeh={};  receipts.forEach(r=>{ const v=r.vehiculo||'Sin tipo'; byVeh[v]=(byVeh[v]||0)+1; });
+    renderBarChart('est-veh', byVeh, false);
+
+    // Por empresa (monto)
+    const byEmp={};  receipts.forEach(r=>{ const e=r.empresa||'Sin empresa'; byEmp[e]=(byEmp[e]||0)+Number(r.total||0); });
+    renderBarChart('est-emp', Object.fromEntries(Object.entries(byEmp).sort((a,b)=>b[1]-a[1]).slice(0,8)), true);
+
+    // Por chofer (cantidad)
+    const byCho={};  receipts.forEach(r=>{ const c=r.chofer||'Sin chofer'; byCho[c]=(byCho[c]||0)+1; });
+    renderBarChart('est-chofer', Object.fromEntries(Object.entries(byCho).sort((a,b)=>b[1]-a[1]).slice(0,8)), false);
+
+    // Por usuario (monto)
+    const byUser={}; receipts.forEach(r=>{ const u=emailMap[r.user_id]||r.user_id?.substring(0,8)||'—'; byUser[u]=(byUser[u]||0)+Number(r.total||0); });
+    renderBarChart('est-user', Object.fromEntries(Object.entries(byUser).sort((a,b)=>b[1]-a[1]).slice(0,8)), true);
+
+    // Evolución mensual
+    const byMes={}; receipts.forEach(r=>{ if(!r.fecha) return; const m=r.fecha.substring(0,7); byMes[m]=(byMes[m]||0)+Number(r.total||0); });
+    const mesSorted=Object.fromEntries(Object.entries(byMes).sort((a,b)=>a[0].localeCompare(b[0])));
+    renderBarChart('est-mes', mesSorted, true);
+  } catch(e) { toast('Error: '+e.message,'err'); }
+  setSyncBadge(false);
+}
+
+// ── EXPORTAR PDF ──────────────────────────────────────────
+async function getFilteredReceipts(fromId, toId, vehId) {
+  const from=document.getElementById(fromId)?.value;
+  const to  =document.getElementById(toId)?.value;
+  const veh =document.getElementById(vehId)?.value;
+  let q='receipts?order=fecha.asc';
+  if(from) q+='&fecha=gte.'+from;
+  if(to)   q+='&fecha=lte.'+to;
+  if(veh)  q+='&vehiculo=eq.'+encodeURIComponent(veh);
+  return adminFetch(q);
+}
+
+async function exportGeneralPDF() {
+  if(!jsPDF){toast('jsPDF no disponible','err');return;}
+  const receipts=await getFilteredReceipts('rp-from','rp-to','rp-veh');
+  if(!receipts.length){toast('Sin datos para exportar');return;}
+  const profiles=await adminFetch('profiles?select=user_id,email');
+  const emailMap={}; profiles.forEach(p=>emailMap[p.user_id]=p.email);
+  const total=receipts.reduce((a,r)=>a+Number(r.total||0),0);
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=12;
+  doc.setFillColor(14,62,110);doc.rect(0,0,W,22,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(255,255,255);
+  doc.text('REPORTE GENERAL — TRANSFERLOG',W/2,13,{align:'center'});
+  doc.setFontSize(8);doc.setFont('helvetica','normal');
+  const from=document.getElementById('rp-from').value, to=document.getElementById('rp-to').value;
+  doc.text(`Período: ${from?fmtDate(from):'inicio'} — ${to?fmtDate(to):'hoy'} · Generado el ${new Date().toLocaleDateString('es-CL')}`,W/2,18.5,{align:'center'});
+  let y=30;
+  // Resumen
+  doc.setFillColor(230,241,251);doc.roundedRect(M,y,55,16,2,2,'F');
+  doc.setFontSize(8);doc.setTextColor(24,95,165);doc.text('Total recibos',M+3,y+6);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.text(String(receipts.length),M+3,y+13);
+  doc.setFillColor(225,245,238);doc.roundedRect(M+60,y,80,16,2,2,'F');
+  doc.setFontSize(8);doc.setTextColor(15,110,86);doc.text('Monto total',M+63,y+6);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(15,110,86);doc.text(fmtCLP(total),M+63,y+13);
+  y+=24;
+  const cols=['#','Fecha','Usuario','Chofer','Vehículo','Ruta','Empresa','Detalle','Total'];
+  const xs=[M,M+10,M+26,M+62,M+92,M+109,M+133,M+152,M+177];
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+  cols.forEach((h,i)=>doc.text(h,xs[i],y));
+  y+=2;doc.setDrawColor(14,62,110);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);y+=4;
+  doc.setFont('helvetica','normal');doc.setFontSize(7);
+  receipts.forEach((r,idx)=>{
+    if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-3,W-2*M,7,'F');}
+    doc.setTextColor(30,30,30);
+    const detTxt=(r.detalle||'').replace(/\n/g,' ').substring(0,16);
+    [String(r.num||''),fmtDate(r.fecha),(emailMap[r.user_id]||'').substring(0,16),(r.chofer||'').substring(0,14),(r.vehiculo||''),(r.desde||'').substring(0,9)+(r.hasta?'→'+(r.hasta||'').substring(0,9):''),
+     (r.empresa||'').substring(0,14),detTxt,fmtCLP(r.total)].forEach((v,i)=>doc.text(v,xs[i],y+1));
+    y+=7;if(y>272){doc.addPage();y=20;}
+  });
+  doc.setDrawColor(200,200,200);doc.line(M,y,W-M,y);y+=5;
+  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
+  doc.text('TOTAL: '+fmtCLP(total),W-M,y,{align:'right'});
+  doc.save('reporte-general-'+new Date().toISOString().split('T')[0]+'.pdf');
+  toast('PDF generado ✓','ok');
+}
+
+async function exportUserPDF() {
+  if(!jsPDF){toast('jsPDF no disponible','err');return;}
+  const uid=document.getElementById('ru-user').value;
+  if(!uid){toast('Selecciona un usuario');return;}
+  const from=document.getElementById('ru-from').value, to=document.getElementById('ru-to').value;
+  let q='receipts?user_id=eq.'+uid+'&order=fecha.asc';
+  if(from) q+='&fecha=gte.'+from;
+  if(to)   q+='&fecha=lte.'+to;
+  const [receipts,profile]=await Promise.all([adminFetch(q),adminFetch('profiles?user_id=eq.'+uid)]);
+  const email=profile[0]?.email||'Usuario';
+  const total=receipts.reduce((a,r)=>a+Number(r.total||0),0);
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=14;
+  doc.setFillColor(14,62,110);doc.rect(0,0,W,26,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,255,255);
+  doc.text('REPORTE INDIVIDUAL — TRANSFERLOG',W/2,12,{align:'center'});
+  doc.setFontSize(10);doc.text(email,W/2,19,{align:'center'});
+  doc.setFontSize(8);doc.setFont('helvetica','normal');
+  doc.text(`Período: ${from?fmtDate(from):'inicio'} — ${to?fmtDate(to):'hoy'}`,W/2,23.5,{align:'center'});
+  let y=34;
+  doc.setFillColor(230,241,251);doc.roundedRect(M,y,60,16,2,2,'F');
+  doc.setFontSize(8);doc.setTextColor(24,95,165);doc.text('Total recibos',M+3,y+6);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.text(String(receipts.length),M+3,y+13);
+  doc.setFillColor(225,245,238);doc.roundedRect(M+66,y,75,16,2,2,'F');
+  doc.setFontSize(8);doc.setTextColor(15,110,86);doc.text('Monto total',M+69,y+6);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(15,110,86);doc.text(fmtCLP(total),M+69,y+13);
+  y+=24;
+  const cols=['#','Fecha','Chofer','Vehículo','Desde','Hasta','Empresa','Detalle','Total'];
+  const xs=[M,M+10,M+26,M+60,M+85,M+108,M+130,M+155,M+178];
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+  cols.forEach((h,i)=>doc.text(h,xs[i],y));
+  y+=2;doc.setDrawColor(14,62,110);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);y+=4;
+  doc.setFont('helvetica','normal');doc.setFontSize(7);
+  receipts.forEach((r,idx)=>{
+    if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-3,W-2*M,7,'F');}
+    doc.setTextColor(30,30,30);
+    const det=(r.detalle||'').replace(/\n/g,' ').substring(0,18);
+    [String(r.num||''),fmtDate(r.fecha),(r.chofer||'').substring(0,14),(r.vehiculo||''),(r.desde||'').substring(0,12),(r.hasta||'').substring(0,12),(r.empresa||'').substring(0,14),det,fmtCLP(r.total)]
+      .forEach((v,i)=>doc.text(v,xs[i],y+1));
+    y+=7;if(y>272){doc.addPage();y=20;}
+  });
+  doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
+  y+=4;doc.text('TOTAL: '+fmtCLP(total),W-M,y,{align:'right'});
+  doc.save('reporte-'+email.split('@')[0]+'-'+new Date().toISOString().split('T')[0]+'.pdf');
+  toast('PDF por usuario generado ✓','ok');
+}
+
+async function exportGroupPDF() {
+  if(!jsPDF){toast('jsPDF no disponible','err');return;}
+  const from=document.getElementById('re-from').value, to=document.getElementById('re-to').value;
+  const group=document.getElementById('re-group').value;
+  let q='receipts?order=fecha.asc';
+  if(from) q+='&fecha=gte.'+from;
+  if(to)   q+='&fecha=lte.'+to;
+  const receipts=await adminFetch(q);
+  // Agrupar
+  const grouped={};
+  receipts.forEach(r=>{
+    const key=r[group]||'Sin '+group;
+    if(!grouped[key]) grouped[key]={items:[],total:0};
+    grouped[key].items.push(r); grouped[key].total+=Number(r.total||0);
+  });
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=14;
+  const groupLabels={empresa:'Empresa',chofer:'Chofer',vehiculo:'Vehículo'};
+  doc.setFillColor(14,62,110);doc.rect(0,0,W,22,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,255,255);
+  doc.text('REPORTE AGRUPADO POR '+groupLabels[group].toUpperCase(),W/2,12,{align:'center'});
+  doc.setFontSize(8);doc.setFont('helvetica','normal');
+  doc.text(`Período: ${from?fmtDate(from):'inicio'} — ${to?fmtDate(to):'hoy'} · TransferLog`,W/2,18.5,{align:'center'});
+  let y=30;
+  Object.entries(grouped).sort((a,b)=>b[1].total-a[1].total).forEach(([key,grp])=>{
+    if(y>250){doc.addPage();y=20;}
+    doc.setFillColor(230,241,251);doc.roundedRect(M,y,W-2*M,12,2,2,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
+    doc.text(key,M+4,y+8);
+    doc.setFont('helvetica','normal');doc.setFontSize(9);
+    doc.text(grp.items.length+' recibos  ·  '+fmtCLP(grp.total),W-M-4,y+8,{align:'right'});
+    y+=16;
+    grp.items.forEach((r,idx)=>{
+      if(y>272){doc.addPage();y=20;}
+      if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-2,W-2*M,6.5,'F');}
+      doc.setTextColor(30,30,30);doc.setFontSize(7);
+      doc.text(fmtDate(r.fecha),M,y+2);
+      doc.text((r.desde||'')+(r.hasta?' → '+r.hasta:''),M+22,y+2);
+      doc.text((r.detalle||'').replace(/\n/g,' ').substring(0,35),M+80,y+2);
+      doc.setFont('helvetica','bold');doc.text(fmtCLP(r.total),W-M,y+2,{align:'right'});
+      doc.setFont('helvetica','normal');
+      y+=6.5;
+    });
+    y+=6;
+  });
+  doc.save('reporte-agrupado-'+group+'-'+new Date().toISOString().split('T')[0]+'.pdf');
+  toast('PDF agrupado generado ✓','ok');
+}
+
+// ── Service key prompt en login ───────────────────────────
+// Si no hay service key configurada, mostrar campo extra
+window.addEventListener('DOMContentLoaded', ()=>{
+  if (!SB_SERVICE) {
+    const card = document.querySelector('.auth-card');
+    const hint = document.createElement('div');
+    hint.innerHTML = `
+      <details style="margin-top:14px">
+        <summary style="font-size:11px;color:var(--text2);cursor:pointer">Configurar Service Role Key (requerida para gestión de usuarios)</summary>
+        <div style="margin-top:8px">
+          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Service Role Key (Supabase → Settings → API)</label>
+          <input id="a-service-key" type="password" style="width:100%;padding:8px;font-size:12px;border:1px solid #e4e4e7;border-radius:6px;font-family:inherit" placeholder="eyJ...">
+          <p style="font-size:10px;color:#A32D2D;margin-top:4px">⚠ Mantén este archivo privado. Nunca lo publiques en repositorios públicos.</p>
+          <button class="btn sm primary" style="margin-top:8px" onclick="saveServiceKey()">Guardar y recargar</button>
+        </div>
+      </details>`;
+    card.appendChild(hint);
+  }
+  // Auth listener
+  _sb.auth.onAuthStateChange(async(event,session)=>{
+    if(!session) return;
+  });
+});
+
+function saveServiceKey() {
+  const v = document.getElementById('a-service-key')?.value?.trim();
+  if(!v) return;
+  localStorage.setItem('tl_service_key', v);
+  toast('Service key guardada. Recargando...','ok');
+  setTimeout(()=>location.reload(),1000);
+}
+
+// Cerrar overlays al hacer click afuera
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('show'); });
+});
+</script>
+</body>
+</html>
