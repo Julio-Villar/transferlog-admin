@@ -542,6 +542,7 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <div class="field"><label>Chofer</label><input type="text" id="no-chofer" placeholder="Nombre del chofer"></div>
       <div class="field"><label>Área</label><input type="text" id="no-area" placeholder="Área"></div>
     </div>
+    <div class="field"><label>Solicita</label><input type="text" id="no-solicita" placeholder="Nombre de quien solicita el servicio"></div>
     <div class="r2">
       <div class="field"><label>Empresa</label><input type="text" id="no-empresa" placeholder="Empresa"></div>
       <div class="field"><label>Centro de costo</label><input type="text" id="no-costo" placeholder="Centro de costo"></div>
@@ -1335,7 +1336,7 @@ async function verOrden(id) {
     <table style="width:100%;border-collapse:collapse">
       ${row('Fecha', fmtDate(o.fecha))}${row('Vehículo', o.vehiculo)}
       ${row('Chofer', o.chofer)}${row('Área', o.area)}
-      ${row('Empresa', o.empresa)}${row('Centro costo', o.costo)}
+      ${row('Solicita', o.solicita)}${row('Empresa', o.empresa)}${row('Centro costo', o.costo)}
       ${row('Desde', o.desde)}${row('Hasta', o.hasta)}
       ${row('H. Inicio', o.hinicio)}
       ${row('Total estimado', o.total ? fmtCLP(o.total) : null)}
@@ -1355,7 +1356,7 @@ async function adminDeleteOrden() {
 }
 
 function openCreateOrden() {
-  ['no-chofer','no-area','no-empresa','no-costo','no-desde','no-hasta','no-detalle','no-wsp'].forEach(id => {
+  ['no-chofer','no-area','no-solicita','no-empresa','no-costo','no-desde','no-hasta','no-detalle','no-wsp'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('no-fecha').value = new Date().toISOString().split('T')[0];
@@ -1390,6 +1391,7 @@ async function createOrden() {
       vehiculo:  document.getElementById('no-vehiculo').value,
       chofer:    document.getElementById('no-chofer').value.trim(),
       area:      document.getElementById('no-area').value.trim(),
+      solicita:  document.getElementById('no-solicita').value.trim(),
       empresa:   document.getElementById('no-empresa').value.trim(),
       costo:     document.getElementById('no-costo').value.trim(),
       desde, hasta,
