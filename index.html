@@ -221,6 +221,7 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <button class="snav-btn" onclick="goTo('usuarios')" id="nav-usuarios"><i class="ti ti-users"></i>Usuarios</button>
       <button class="snav-btn" onclick="goTo('rutas')" id="nav-rutas"><i class="ti ti-map-pin"></i>Rutas globales</button>
       <button class="snav-btn" onclick="goTo('recibos')" id="nav-recibos"><i class="ti ti-file-text"></i>Todos los recibos</button>
+      <button class="snav-btn" onclick="goTo('ordenes')" id="nav-ordenes"><i class="ti ti-send"></i>Órdenes de viaje</button>
       <div class="snav-section">Estadísticas</div>
       <button class="snav-btn" onclick="goTo('estadisticas')" id="nav-estadisticas"><i class="ti ti-chart-bar"></i>Estadísticas</button>
       <button class="snav-btn" onclick="goTo('reportes')" id="nav-reportes"><i class="ti ti-file-download"></i>Reportes PDF</button>
@@ -325,6 +326,32 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
             <table class="tbl">
               <thead><tr><th>#</th><th>Fecha</th><th>Usuario</th><th>Chofer</th><th>Vehículo</th><th>Ruta</th><th>Empresa</th><th>Detalle</th><th>Total</th><th></th></tr></thead>
               <tbody id="recibos-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ÓRDENES DE VIAJE ──────────────────────────── -->
+      <div class="page" id="page-ordenes">
+        <div class="flex-between" style="margin-bottom:16px">
+          <div class="text-muted" id="ordenes-count">—</div>
+          <button class="btn primary" onclick="openCreateOrden()"><i class="ti ti-plus"></i> Nueva orden</button>
+        </div>
+        <div class="card" style="padding:14px 16px;margin-bottom:16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="field" style="margin:0;flex:1;min-width:110px"><label>Estado</label>
+              <select id="o-estado"><option value="">Todos</option><option value="pendiente">Pendiente</option><option value="aceptada">Aceptada</option><option value="rechazada">Rechazada</option></select>
+            </div>
+            <div class="field" style="margin:0;flex:1;min-width:110px"><label>Desde</label><input type="date" id="o-from"></div>
+            <div class="field" style="margin:0;flex:1;min-width:110px"><label>Hasta</label><input type="date" id="o-to"></div>
+            <button class="btn" onclick="loadOrdenes()"><i class="ti ti-filter"></i> Filtrar</button>
+          </div>
+        </div>
+        <div class="card" style="padding:0">
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Usuario</th><th>Fecha</th><th>Vehículo</th><th>Ruta</th><th>Empresa</th><th>Total</th><th>Estado</th><th>Respondida</th><th></th></tr></thead>
+              <tbody id="ordenes-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -494,6 +521,73 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 
 <div class="toast" id="toast"></div>
 
+<!-- Modal crear orden -->
+<div class="overlay" id="modal-create-orden">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <span class="modal-title">Nueva orden de viaje</span>
+      <button class="modal-close" onclick="closeModal('modal-create-orden')">×</button>
+    </div>
+    <div class="field">
+      <label>Asignar a usuario <span style="color:#A32D2D">*</span></label>
+      <select id="no-user"><option value="">— Seleccionar usuario —</option></select>
+    </div>
+    <div class="r2">
+      <div class="field"><label>Fecha <span style="color:#A32D2D">*</span></label><input type="date" id="no-fecha"></div>
+      <div class="field"><label>Vehículo</label>
+        <select id="no-vehiculo"><option value="">— Seleccionar —</option><option>Auto</option><option>Furgón</option><option>Sprinter</option><option>Bus</option></select>
+      </div>
+    </div>
+    <div class="r2">
+      <div class="field"><label>Chofer</label><input type="text" id="no-chofer" placeholder="Nombre del chofer"></div>
+      <div class="field"><label>Área</label><input type="text" id="no-area" placeholder="Área"></div>
+    </div>
+    <div class="r2">
+      <div class="field"><label>Empresa</label><input type="text" id="no-empresa" placeholder="Empresa"></div>
+      <div class="field"><label>Centro de costo</label><input type="text" id="no-costo" placeholder="Centro de costo"></div>
+    </div>
+    <div class="r2">
+      <div class="field"><label>Traslado desde <span style="color:#A32D2D">*</span></label><input type="text" id="no-desde" placeholder="Origen"></div>
+      <div class="field"><label>Hasta <span style="color:#A32D2D">*</span></label><input type="text" id="no-hasta" placeholder="Destino"></div>
+    </div>
+    <div class="r2">
+      <div class="field"><label>H. Inicio</label><input type="time" id="no-hinicio"></div>
+      <div class="field"><label>Total estimado ($)</label><input type="number" id="no-total" placeholder="0" inputmode="numeric"></div>
+    </div>
+    <div class="field"><label>Detalle / instrucciones</label><textarea id="no-detalle" placeholder="Instrucciones específicas, observaciones..."></textarea></div>
+    <!-- WhatsApp -->
+    <div style="background:var(--bgs);border:var(--border);border-radius:var(--rsm);padding:12px;margin-bottom:4px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <i class="ti ti-brand-whatsapp" style="color:#25D366;font-size:16px"></i> Notificación WhatsApp (opcional)
+      </div>
+      <div class="field" style="margin:0">
+        <label>Número del usuario (con código de país)</label>
+        <input type="tel" id="no-wsp" placeholder="+56912345678">
+      </div>
+    </div>
+    <div id="no-err" style="font-size:12px;color:var(--red);min-height:16px;margin-top:6px"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-create-orden')">Cancelar</button>
+      <button class="btn primary" id="no-btn" onclick="createOrden()"><i class="ti ti-send"></i> Enviar orden</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ver orden -->
+<div class="overlay" id="modal-ver-orden">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title" id="vo-title">Orden de viaje</span>
+      <button class="modal-close" onclick="closeModal('modal-ver-orden')">×</button>
+    </div>
+    <div id="vo-body"></div>
+    <div class="modal-footer">
+      <button class="btn danger" id="vo-del" onclick="adminDeleteOrden()"><i class="ti ti-trash"></i> Eliminar</button>
+      <button class="btn" onclick="closeModal('modal-ver-orden')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── Config ────────────────────────────────────────────────
 const SB_URL  = 'https://luosbdpumkoqsfiwqjft.supabase.co';
@@ -634,7 +728,7 @@ function goTo(page) {
   const meta = PAGE_META[page] || {};
   document.getElementById('page-title').textContent = meta.title || page;
   document.getElementById('page-sub').textContent   = meta.sub   || '';
-  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, estadisticas: loadEstadisticas, reportes: ()=>{} };
+  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, estadisticas: loadEstadisticas, reportes: ()=>{} };
   if (loaders[page]) loaders[page]();
 }
 
@@ -647,8 +741,8 @@ function refreshCurrentPage() {
 function initDateFilters() {
   const today    = new Date().toISOString().split('T')[0];
   const firstDay = today.substring(0,8) + '01';
-  ['r-from','e-from','rp-from','ru-from','re-from'].forEach(id => { const el=document.getElementById(id); if(el) el.value=firstDay });
-  ['r-to',  'e-to',  'rp-to',  'ru-to',  're-to' ].forEach(id => { const el=document.getElementById(id); if(el) el.value=today   });
+  ['r-from','e-from','rp-from','ru-from','re-from','o-from'].forEach(id => { const el=document.getElementById(id); if(el) el.value=firstDay });
+  ['r-to',  'e-to',  'rp-to',  'ru-to',  're-to', 'o-to' ].forEach(id => { const el=document.getElementById(id); if(el) el.value=today   });
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────
@@ -1176,6 +1270,157 @@ function saveServiceKey() {
   localStorage.setItem('tl_service_key', v);
   toast('Service key guardada. Recargando...','ok');
   setTimeout(()=>location.reload(),1000);
+}
+
+// ── ÓRDENES ───────────────────────────────────────────────
+PAGE_META['ordenes'] = { title:'Órdenes de viaje', sub:'Crear y monitorear órdenes enviadas a usuarios' };
+
+const ORDEN_ESTADO = {
+  pendiente: { cls:'amber', label:'Pendiente' },
+  aceptada:  { cls:'green', label:'Aceptada'  },
+  rechazada: { cls:'red',   label:'Rechazada' }
+};
+
+let _curOrdenAdminId = null;
+
+async function loadOrdenes() {
+  setSyncBadge(true);
+  try {
+    const estado = document.getElementById('o-estado').value;
+    const from   = document.getElementById('o-from').value;
+    const to     = document.getElementById('o-to').value;
+    let q = 'ordenes?order=created_at.desc';
+    if (estado) q += '&estado=eq.' + estado;
+    if (from)   q += '&fecha=gte.' + from;
+    if (to)     q += '&fecha=lte.' + to;
+    const [ordenes, profiles] = await Promise.all([
+      adminFetch(q), adminFetch('profiles?select=user_id,email')
+    ]);
+    const emailMap = {}; profiles.forEach(p => emailMap[p.user_id] = p.email);
+    document.getElementById('ordenes-count').textContent = ordenes.length + ' órdenes';
+    const tbody = document.getElementById('ordenes-tbody');
+    tbody.innerHTML = ordenes.length ? ordenes.map(o => {
+      const es = ORDEN_ESTADO[o.estado] || ORDEN_ESTADO.pendiente;
+      return `<tr style="cursor:pointer" onclick="verOrden('${o.id}')">
+        <td class="muted">${escH(emailMap[o.assigned_to] || '—')}</td>
+        <td>${fmtDate(o.fecha)}</td>
+        <td>${o.vehiculo ? `<span class="badge blue">${o.vehiculo}</span>` : '—'}</td>
+        <td class="muted">${escH(o.desde||'')}${o.hasta?' → '+escH(o.hasta):''}</td>
+        <td class="muted">${escH(o.empresa||'—')}</td>
+        <td style="font-weight:600;color:var(--blue)">${o.total ? fmtCLP(o.total) : '—'}</td>
+        <td><span class="badge ${es.cls}">${es.label}</span></td>
+        <td class="muted">${o.respondido_at ? fmtDate(o.respondido_at.split('T')[0]) : '—'}</td>
+        <td><button class="btn sm ghost" onclick="event.stopPropagation();verOrden('${o.id}')"><i class="ti ti-eye"></i></button></td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="9" class="muted" style="text-align:center;padding:24px">Sin órdenes</td></tr>';
+  } catch(e) { toast('Error: ' + e.message, 'err'); }
+  setSyncBadge(false);
+}
+
+async function verOrden(id) {
+  const ordenes = await adminFetch('ordenes?id=eq.' + id);
+  const o = ordenes[0]; if (!o) return;
+  _curOrdenAdminId = id;
+  const profiles = await adminFetch('profiles?user_id=eq.' + o.assigned_to + '&select=email');
+  const email = profiles[0]?.email || '—';
+  const es = ORDEN_ESTADO[o.estado] || ORDEN_ESTADO.pendiente;
+  document.getElementById('vo-title').textContent = 'Orden de viaje';
+  const row = (l,v) => v ? `<tr><td style="color:var(--text2);font-size:12px;padding:4px 0;width:42%">${l}</td><td style="font-size:13px;padding:4px 0">${escH(String(v))}</td></tr>` : '';
+  document.getElementById('vo-body').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <span style="font-size:13px;font-weight:600;color:var(--blue)">${escH(email)}</span>
+      <span class="badge ${es.cls}">${es.label}</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      ${row('Fecha', fmtDate(o.fecha))}${row('Vehículo', o.vehiculo)}
+      ${row('Chofer', o.chofer)}${row('Área', o.area)}
+      ${row('Empresa', o.empresa)}${row('Centro costo', o.costo)}
+      ${row('Desde', o.desde)}${row('Hasta', o.hasta)}
+      ${row('H. Inicio', o.hinicio)}
+      ${row('Total estimado', o.total ? fmtCLP(o.total) : null)}
+    </table>
+    ${o.detalle ? `<div style="margin-top:10px;font-size:12px;color:var(--text2);border-top:var(--border);padding-top:8px">${escH(o.detalle)}</div>` : ''}
+    ${o.motivo_rechazo ? `<div style="margin-top:10px;background:var(--red-l);border-radius:6px;padding:10px;font-size:12px;color:var(--red)"><strong>Motivo de rechazo:</strong><br>${escH(o.motivo_rechazo)}</div>` : ''}
+    ${o.respondido_at ? `<div style="margin-top:8px;font-size:11px;color:var(--text2)">Respondida el ${fmtDate(o.respondido_at.split('T')[0])}</div>` : ''}`;
+  openModal('modal-ver-orden');
+}
+
+async function adminDeleteOrden() {
+  if (!confirm('¿Eliminar esta orden?')) return;
+  try {
+    await adminFetch('ordenes?id=eq.' + _curOrdenAdminId, { method: 'DELETE' });
+    toast('Orden eliminada', 'ok'); closeModal('modal-ver-orden'); loadOrdenes();
+  } catch(e) { toast('Error: ' + e.message, 'err'); }
+}
+
+function openCreateOrden() {
+  ['no-chofer','no-area','no-empresa','no-costo','no-desde','no-hasta','no-detalle','no-wsp'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('no-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('no-vehiculo').value = '';
+  document.getElementById('no-total').value = '';
+  document.getElementById('no-hinicio').value = '';
+  document.getElementById('no-err').textContent = '';
+  // Poblar usuarios
+  const sel = document.getElementById('no-user');
+  sel.innerHTML = '<option value="">— Seleccionar usuario —</option>';
+  allUsers.forEach(u => {
+    const o = document.createElement('option'); o.value = u.user_id;
+    o.textContent = u.email || u.user_id; sel.appendChild(o);
+  });
+  openModal('modal-create-orden');
+}
+
+async function createOrden() {
+  const uid    = document.getElementById('no-user').value;
+  const fecha  = document.getElementById('no-fecha').value;
+  const desde  = document.getElementById('no-desde').value.trim();
+  const hasta  = document.getElementById('no-hasta').value.trim();
+  const err    = document.getElementById('no-err');
+  err.textContent = '';
+  if (!uid || !fecha || !desde || !hasta) { err.textContent = 'Completa los campos obligatorios (usuario, fecha, desde y hasta)'; return; }
+  setBtnLoad('no-btn', true, '<i class="ti ti-send"></i> Enviar orden');
+  try {
+    const body = {
+      created_by:  adminSession.user.id,
+      assigned_to: uid,
+      fecha, estado: 'pendiente',
+      vehiculo:  document.getElementById('no-vehiculo').value,
+      chofer:    document.getElementById('no-chofer').value.trim(),
+      area:      document.getElementById('no-area').value.trim(),
+      empresa:   document.getElementById('no-empresa').value.trim(),
+      costo:     document.getElementById('no-costo').value.trim(),
+      desde, hasta,
+      hinicio:   document.getElementById('no-hinicio').value,
+      total:     Number(document.getElementById('no-total').value || 0) || null,
+      detalle:   document.getElementById('no-detalle').value.trim(),
+      created_at: new Date().toISOString()
+    };
+    await adminFetch('ordenes', { method: 'POST', body: JSON.stringify(body) });
+
+    // WhatsApp (si ingresó número)
+    const wsp = document.getElementById('no-wsp').value.trim().replace(/\s+/g, '');
+    if (wsp) {
+      const txt = encodeURIComponent(
+        `🚌 *TransferLog — Orden de viaje*\n\n` +
+        `📅 Fecha: ${fmtDate(fecha)}\n` +
+        `${body.vehiculo ? '🚗 Vehículo: ' + body.vehiculo + '\n' : ''}` +
+        `${body.chofer   ? '👤 Chofer: '   + body.chofer   + '\n' : ''}` +
+        `📍 Desde: ${desde}\n` +
+        `📍 Hasta: ${hasta}\n` +
+        `${body.hinicio  ? '🕐 Hora inicio: ' + body.hinicio + '\n' : ''}` +
+        `${body.empresa  ? '🏢 Empresa: '     + body.empresa  + '\n' : ''}` +
+        `${body.detalle  ? '\n📋 Detalle: '   + body.detalle  + '\n' : ''}` +
+        `${body.total    ? '\n💰 Total estimado: $' + Number(body.total).toLocaleString('es-CL') + '\n' : ''}` +
+        `\nAbre la app TransferLog para aceptar o rechazar esta orden.`
+      );
+      window.open('https://wa.me/' + wsp.replace('+', '') + '?text=' + txt, '_blank');
+    }
+
+    toast('Orden enviada ✓', 'ok'); closeModal('modal-create-orden'); loadOrdenes();
+  } catch(e) { err.textContent = 'Error: ' + e.message; }
+  setBtnLoad('no-btn', false, '<i class="ti ti-send"></i> Enviar orden');
 }
 
 // Cerrar overlays al hacer click afuera
