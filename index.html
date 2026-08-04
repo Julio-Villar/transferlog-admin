@@ -1276,9 +1276,10 @@ function saveServiceKey() {
 PAGE_META['ordenes'] = { title:'Órdenes de viaje', sub:'Crear y monitorear órdenes enviadas a usuarios' };
 
 const ORDEN_ESTADO = {
-  pendiente: { cls:'amber', label:'Pendiente' },
-  aceptada:  { cls:'green', label:'Aceptada'  },
-  rechazada: { cls:'red',   label:'Rechazada' }
+  pendiente:  { cls:'amber', label:'Pendiente'  },
+  aceptada:   { cls:'blue',  label:'Aceptada'   },
+  rechazada:  { cls:'red',   label:'Rechazada'  },
+  completada: { cls:'green', label:'Completada' }
 };
 
 let _curOrdenAdminId = null;
