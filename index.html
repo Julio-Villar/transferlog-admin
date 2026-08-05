@@ -225,6 +225,8 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <div class="snav-section">Estadísticas</div>
       <button class="snav-btn" onclick="goTo('estadisticas')" id="nav-estadisticas"><i class="ti ti-chart-bar"></i>Estadísticas</button>
       <button class="snav-btn" onclick="goTo('reportes')" id="nav-reportes"><i class="ti ti-file-download"></i>Reportes PDF</button>
+      <div class="snav-section">Sistema</div>
+      <button class="snav-btn" onclick="goTo('configuracion')" id="nav-configuracion"><i class="ti ti-settings"></i>Configuración</button>
     </nav>
     <div class="sidebar-footer">
       <div class="user-info"><strong id="sb-email">—</strong>Administrador</div>
@@ -422,6 +424,68 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
               </div>
               <button class="btn green mt8" style="width:100%;justify-content:center" onclick="exportGroupPDF()"><i class="ti ti-file-download"></i> Exportar PDF agrupado</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CONFIGURACIÓN ──────────────────────────────── -->
+      <div class="page" id="page-configuracion">
+        <div class="grid2">
+          <!-- Valores de cobro -->
+          <div class="card">
+            <div class="card-title">Valores de cobro adicional</div>
+            <div class="field">
+              <label>Valor por parada adicional ($)</label>
+              <input type="number" id="adm-stop-value" placeholder="0" inputmode="numeric">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">Se multiplica por la cantidad de paradas registradas en el recibo.</div>
+            </div>
+            <div class="field">
+              <label>Valor por tiempo de espera ($)</label>
+              <input type="number" id="adm-wait-value" placeholder="0" inputmode="numeric">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">Se cobra por cada 30 minutos completados. Ej: 45 min = 1 cobro, 90 min = 3 cobros.</div>
+            </div>
+            <button class="btn primary" onclick="saveAdminSettings()"><i class="ti ti-device-floppy"></i> Guardar valores</button>
+          </div>
+
+          <!-- Agregar catálogos -->
+          <div class="card">
+            <div class="card-title">Agregar dato frecuente</div>
+            <div class="field">
+              <label>Tipo</label>
+              <select id="adm-catalog-type">
+                <option value="choferes">Chofer</option>
+                <option value="solicitantes">Quien solicita</option>
+                <option value="areas">Área</option>
+                <option value="empresas">Empresa</option>
+                <option value="costos">Centro de costo</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Valor</label>
+              <input type="text" id="adm-catalog-value" placeholder="Nombre o código" onkeydown="if(event.key==='Enter')addAdminCatalog()">
+            </div>
+            <button class="btn primary" onclick="addAdminCatalog()"><i class="ti ti-plus"></i> Agregar</button>
+          </div>
+        </div>
+
+        <!-- Tabla catálogos -->
+        <div class="card">
+          <div class="card-title">
+            <span>Datos frecuentes registrados</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn sm ghost" onclick="filterCatalog('')"    id="cf-btn-all">Todos</button>
+              <button class="btn sm ghost" onclick="filterCatalog('choferes')"     id="cf-btn-choferes">Choferes</button>
+              <button class="btn sm ghost" onclick="filterCatalog('solicitantes')" id="cf-btn-solicitantes">Solicitantes</button>
+              <button class="btn sm ghost" onclick="filterCatalog('areas')"        id="cf-btn-areas">Áreas</button>
+              <button class="btn sm ghost" onclick="filterCatalog('empresas')"     id="cf-btn-empresas">Empresas</button>
+              <button class="btn sm ghost" onclick="filterCatalog('costos')"       id="cf-btn-costos">Costos</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th>Tipo</th><th>Valor</th><th>Creado</th><th></th></tr></thead>
+              <tbody id="catalogs-tbody"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -729,7 +793,7 @@ function goTo(page) {
   const meta = PAGE_META[page] || {};
   document.getElementById('page-title').textContent = meta.title || page;
   document.getElementById('page-sub').textContent   = meta.sub   || '';
-  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, estadisticas: loadEstadisticas, reportes: ()=>{} };
+  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, estadisticas: loadEstadisticas, reportes: ()=>{}, configuracion: loadConfiguracion };
   if (loaders[page]) loaders[page]();
 }
 
@@ -1273,7 +1337,97 @@ function saveServiceKey() {
   setTimeout(()=>location.reload(),1000);
 }
 
-// ── ÓRDENES ───────────────────────────────────────────────
+// ── CONFIGURACIÓN ─────────────────────────────────────────
+PAGE_META['configuracion'] = { title:'Configuración', sub:'Valores de cobro y datos frecuentes del sistema' };
+
+const CATALOG_TYPE_LABELS = {
+  choferes:'Chofer', solicitantes:'Solicitante', areas:'Área', empresas:'Empresa', costos:'Centro de costo'
+};
+
+let _currentCatalogFilter = '';
+
+async function loadConfiguracion() {
+  setSyncBadge(true);
+  try {
+    // Cargar settings
+    const settings = await adminFetch('settings?select=key,value');
+    const sm = {}; settings.forEach(s => sm[s.key] = s.value);
+    document.getElementById('adm-stop-value').value = sm.extraStopValue || '';
+    document.getElementById('adm-wait-value').value = sm.waitValue      || '';
+
+    // Cargar catálogos
+    await loadAdminCatalogs();
+  } catch(e) { toast('Error al cargar configuración: '+e.message,'err'); }
+  setSyncBadge(false);
+}
+
+async function saveAdminSettings() {
+  const stopVal = Number(document.getElementById('adm-stop-value').value || 0);
+  const waitVal = Number(document.getElementById('adm-wait-value').value || 0);
+  try {
+    // Upsert con on conflict
+    await adminFetch('settings', {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify([
+        { key:'extraStopValue', value: String(stopVal), updated_at: new Date().toISOString() },
+        { key:'waitValue',      value: String(waitVal), updated_at: new Date().toISOString() }
+      ])
+    });
+    toast('Valores guardados ✓','ok');
+  } catch(e) { toast('Error: '+e.message,'err'); }
+}
+
+async function loadAdminCatalogs() {
+  let q = 'catalogs?order=tipo.asc,valor.asc';
+  if (_currentCatalogFilter) q += '&tipo=eq.' + _currentCatalogFilter;
+  const rows = await adminFetch(q);
+
+  // Resaltar botón de filtro activo
+  ['all','choferes','solicitantes','areas','empresas','costos'].forEach(k => {
+    const btn = document.getElementById('cf-btn-'+k);
+    if (btn) btn.className = 'btn sm ' + ((_currentCatalogFilter === k || (k==='all' && !_currentCatalogFilter)) ? 'primary' : 'ghost');
+  });
+
+  const tbody = document.getElementById('catalogs-tbody');
+  tbody.innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td><span class="badge blue">${CATALOG_TYPE_LABELS[r.tipo]||r.tipo}</span></td>
+      <td><strong>${escH(r.valor)}</strong></td>
+      <td class="muted">${fmtDate((r.created_at||'').split('T')[0])}</td>
+      <td><button class="btn sm danger" onclick="deleteAdminCatalog('${r.id}')"><i class="ti ti-trash"></i></button></td>
+    </tr>`).join('')
+  : '<tr><td colspan="4" class="muted" style="text-align:center;padding:24px">Sin datos registrados</td></tr>';
+}
+
+function filterCatalog(tipo) {
+  _currentCatalogFilter = tipo;
+  loadAdminCatalogs();
+}
+
+async function addAdminCatalog() {
+  const tipo  = document.getElementById('adm-catalog-type').value;
+  const valor = document.getElementById('adm-catalog-value').value.trim();
+  if (!valor) { toast('Escribe un valor'); return; }
+  try {
+    await adminFetch('catalogs', {
+      method: 'POST',
+      body: JSON.stringify({ tipo, valor, created_at: new Date().toISOString() })
+    });
+    document.getElementById('adm-catalog-value').value = '';
+    toast('Dato agregado ✓','ok');
+    loadAdminCatalogs();
+  } catch(e) { toast('Error: '+e.message,'err'); }
+}
+
+async function deleteAdminCatalog(id) {
+  if (!confirm('¿Eliminar este dato?')) return;
+  try {
+    await adminFetch('catalogs?id=eq.'+id, { method:'DELETE' });
+    toast('Dato eliminado','ok');
+    loadAdminCatalogs();
+  } catch(e) { toast('Error: '+e.message,'err'); }
+}
 PAGE_META['ordenes'] = { title:'Órdenes de viaje', sub:'Crear y monitorear órdenes enviadas a usuarios' };
 
 const ORDEN_ESTADO = {
