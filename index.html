@@ -1365,17 +1365,19 @@ async function saveAdminSettings() {
   const stopVal = Number(document.getElementById('adm-stop-value').value || 0);
   const waitVal = Number(document.getElementById('adm-wait-value').value || 0);
   try {
-    // Upsert con on conflict
-    await adminFetch('settings', {
-      method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates' },
-      body: JSON.stringify([
-        { key:'extraStopValue', value: String(stopVal), updated_at: new Date().toISOString() },
-        { key:'waitValue',      value: String(waitVal), updated_at: new Date().toISOString() }
-      ])
-    });
-    toast('Valores guardados ✓','ok');
-  } catch(e) { toast('Error: '+e.message,'err'); }
+    // PATCH actualiza por key (los registros ya existen desde el SQL inicial)
+    await Promise.all([
+      adminFetch('settings?key=eq.extraStopValue', {
+        method: 'PATCH',
+        body: JSON.stringify({ value: String(stopVal), updated_at: new Date().toISOString() })
+      }),
+      adminFetch('settings?key=eq.waitValue', {
+        method: 'PATCH',
+        body: JSON.stringify({ value: String(waitVal), updated_at: new Date().toISOString() })
+      })
+    ]);
+    toast('Valores guardados ✓', 'ok');
+  } catch(e) { toast('Error: ' + e.message, 'err'); }
 }
 
 async function loadAdminCatalogs() {
