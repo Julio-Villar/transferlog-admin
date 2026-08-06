@@ -154,7 +154,8 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 /* Modal */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px}
 .overlay.show{display:flex}
-.modal{background:var(--bgw);border-radius:var(--rad);padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.modal{background:var(--bgw);border-radius:var(--rad);padding:24px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.15);overflow:visible}
+.modal-scroll{max-height:calc(90vh - 80px);overflow-y:auto;padding-right:2px}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
 .modal-title{font-size:16px;font-weight:600;color:var(--text)}
 .modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);line-height:1;padding:2px}
@@ -587,71 +588,54 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 
 <!-- Modal crear orden -->
 <div class="overlay" id="modal-create-orden">
-  <div class="modal" style="max-width:560px">
-    <div class="modal-header">
-      <span class="modal-title">Nueva orden de viaje</span>
-      <button class="modal-close" onclick="closeModal('modal-create-orden')">×</button>
-    </div>
-    <div class="field">
-      <label>Asignar a usuario <span style="color:#A32D2D">*</span></label>
-      <select id="no-user"><option value="">— Seleccionar usuario —</option></select>
-    </div>
-    <div class="r2">
-      <div class="field"><label>Fecha <span style="color:#A32D2D">*</span></label><input type="date" id="no-fecha"></div>
-      <div class="field"><label>Vehículo</label>
-        <select id="no-vehiculo"><option value="">— Seleccionar —</option><option>Auto</option><option>Furgón</option><option>Sprinter</option><option>Bus</option></select>
+  <div class="modal" style="max-width:560px;padding:0">
+    <div style="padding:20px 24px 16px;border-bottom:var(--border)">
+      <div class="modal-header" style="margin-bottom:0">
+        <span class="modal-title">Nueva orden de viaje</span>
+        <button class="modal-close" onclick="closeModal('modal-create-orden')">×</button>
       </div>
     </div>
-    <div class="r2">
+    <div class="modal-scroll" style="padding:20px 24px">
       <div class="field">
-        <label>Chofer</label>
-        <input type="text" id="no-chofer" placeholder="Escribe o selecciona" list="dl-choferes" autocomplete="off">
-        <datalist id="dl-choferes"></datalist>
+        <label>Asignar a usuario <span style="color:#A32D2D">*</span></label>
+        <select id="no-user"><option value="">— Seleccionar usuario —</option></select>
       </div>
-      <div class="field">
-        <label>Área</label>
-        <input type="text" id="no-area" placeholder="Escribe o selecciona" list="dl-areas" autocomplete="off">
-        <datalist id="dl-areas"></datalist>
+      <div class="r2">
+        <div class="field"><label>Fecha <span style="color:#A32D2D">*</span></label><input type="date" id="no-fecha"></div>
+        <div class="field"><label>Vehículo</label>
+          <select id="no-vehiculo"><option value="">— Seleccionar —</option><option>Auto</option><option>Furgón</option><option>Sprinter</option><option>Bus</option></select>
+        </div>
       </div>
-    </div>
-    <div class="field">
-      <label>Solicita</label>
-      <input type="text" id="no-solicita" placeholder="Escribe o selecciona" list="dl-solicitantes" autocomplete="off">
-      <datalist id="dl-solicitantes"></datalist>
-    </div>
-    <div class="r2">
-      <div class="field">
-        <label>Empresa</label>
-        <input type="text" id="no-empresa" placeholder="Escribe o selecciona" list="dl-empresas" autocomplete="off">
-        <datalist id="dl-empresas"></datalist>
+      <div class="r2">
+        <div class="field"><label>Chofer</label><select id="no-chofer"><option value="">— Seleccionar —</option></select></div>
+        <div class="field"><label>Área</label><select id="no-area"><option value="">— Seleccionar —</option></select></div>
       </div>
-      <div class="field">
-        <label>Centro de costo</label>
-        <input type="text" id="no-costo" placeholder="Escribe o selecciona" list="dl-costos" autocomplete="off">
-        <datalist id="dl-costos"></datalist>
+      <div class="field"><label>Solicita</label><select id="no-solicita"><option value="">— Seleccionar —</option></select></div>
+      <div class="r2">
+        <div class="field"><label>Empresa</label><select id="no-empresa"><option value="">— Seleccionar —</option></select></div>
+        <div class="field"><label>Centro de costo</label><select id="no-costo"><option value="">— Seleccionar —</option></select></div>
       </div>
-    </div>
-    <div class="r2">
-      <div class="field"><label>Traslado desde <span style="color:#A32D2D">*</span></label><input type="text" id="no-desde" placeholder="Origen"></div>
-      <div class="field"><label>Hasta <span style="color:#A32D2D">*</span></label><input type="text" id="no-hasta" placeholder="Destino"></div>
-    </div>
-    <div class="r2">
-      <div class="field"><label>H. Inicio</label><input type="time" id="no-hinicio"></div>
-      <div class="field"><label>Total estimado ($)</label><input type="number" id="no-total" placeholder="0" inputmode="numeric"></div>
-    </div>
-    <div class="field"><label>Detalle / instrucciones</label><textarea id="no-detalle" placeholder="Instrucciones específicas, observaciones..."></textarea></div>
-    <!-- WhatsApp -->
-    <div style="background:var(--bgs);border:var(--border);border-radius:var(--rsm);padding:12px;margin-bottom:4px">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-        <i class="ti ti-brand-whatsapp" style="color:#25D366;font-size:16px"></i> Notificación WhatsApp (opcional)
+      <div class="r2">
+        <div class="field"><label>Traslado desde <span style="color:#A32D2D">*</span></label><input type="text" id="no-desde" placeholder="Origen"></div>
+        <div class="field"><label>Hasta <span style="color:#A32D2D">*</span></label><input type="text" id="no-hasta" placeholder="Destino"></div>
       </div>
-      <div class="field" style="margin:0">
-        <label>Número del usuario (con código de país)</label>
-        <input type="tel" id="no-wsp" placeholder="+56912345678">
+      <div class="r2">
+        <div class="field"><label>H. Inicio</label><input type="time" id="no-hinicio"></div>
+        <div class="field"><label>Total estimado ($)</label><input type="number" id="no-total" placeholder="0" inputmode="numeric"></div>
       </div>
+      <div class="field"><label>Detalle / instrucciones</label><textarea id="no-detalle" placeholder="Instrucciones específicas, observaciones..."></textarea></div>
+      <div style="background:var(--bgs);border:var(--border);border-radius:var(--rsm);padding:12px;margin-bottom:4px">
+        <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <i class="ti ti-brand-whatsapp" style="color:#25D366;font-size:16px"></i> Notificación WhatsApp (opcional)
+        </div>
+        <div class="field" style="margin:0">
+          <label>Número del usuario (con código de país)</label>
+          <input type="tel" id="no-wsp" placeholder="+56912345678">
+        </div>
+      </div>
+      <div id="no-err" style="font-size:12px;color:var(--red);min-height:16px;margin-top:6px"></div>
     </div>
-    <div id="no-err" style="font-size:12px;color:var(--red);min-height:16px;margin-top:6px"></div>
-    <div class="modal-footer">
+    <div style="padding:16px 24px;border-top:var(--border);display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="closeModal('modal-create-orden')">Cancelar</button>
       <button class="btn primary" id="no-btn" onclick="createOrden()"><i class="ti ti-send"></i> Enviar orden</button>
     </div>
@@ -1553,28 +1537,31 @@ async function openCreateOrden() {
 
   openModal('modal-create-orden');
 
-  // Cargar catálogos desde Supabase en los datalists
+  // Cargar catálogos desde Supabase en los selects
   try {
     const rows = await adminFetch('catalogs?order=tipo.asc,valor.asc');
     const byTipo = {};
     rows.forEach(r => { if (!byTipo[r.tipo]) byTipo[r.tipo] = []; byTipo[r.tipo].push(r.valor); });
 
     const MAP = {
-      'dl-choferes':     'choferes',
-      'dl-areas':        'areas',
-      'dl-solicitantes': 'solicitantes',
-      'dl-empresas':     'empresas',
-      'dl-costos':       'costos'
+      'no-chofer':   { tipo:'choferes',     label:'Seleccionar chofer'      },
+      'no-area':     { tipo:'areas',         label:'Seleccionar área'        },
+      'no-solicita': { tipo:'solicitantes',  label:'Seleccionar solicitante' },
+      'no-empresa':  { tipo:'empresas',      label:'Seleccionar empresa'     },
+      'no-costo':    { tipo:'costos',        label:'Seleccionar costo'       }
     };
 
-    Object.entries(MAP).forEach(([dlId, tipo]) => {
-      const dl = document.getElementById(dlId); if (!dl) return;
-      dl.innerHTML = (byTipo[tipo] || [])
-        .map(v => `<option value="${escH(v)}">`)
-        .join('');
+    Object.entries(MAP).forEach(([id, cfg]) => {
+      const sel = document.getElementById(id); if (!sel) return;
+      const valores = byTipo[cfg.tipo] || [];
+      sel.innerHTML = `<option value="">— ${cfg.label} —</option>` +
+        valores.map(v => `<option value="${escH(v)}">${escH(v)}</option>`).join('');
     });
   } catch(e) {
-    // datalists quedan vacíos, el usuario puede escribir manualmente
+    ['no-chofer','no-area','no-solicita','no-empresa','no-costo'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<option value="">— Sin datos —</option>';
+    });
   }
 }
 
