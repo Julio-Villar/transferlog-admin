@@ -603,13 +603,33 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       </div>
     </div>
     <div class="r2">
-      <div class="field"><label>Chofer</label><input type="text" id="no-chofer" placeholder="Nombre del chofer"></div>
-      <div class="field"><label>Área</label><input type="text" id="no-area" placeholder="Área"></div>
+      <div class="field">
+        <label>Chofer</label>
+        <input type="text" id="no-chofer" placeholder="Escribe o selecciona" list="dl-choferes" autocomplete="off">
+        <datalist id="dl-choferes"></datalist>
+      </div>
+      <div class="field">
+        <label>Área</label>
+        <input type="text" id="no-area" placeholder="Escribe o selecciona" list="dl-areas" autocomplete="off">
+        <datalist id="dl-areas"></datalist>
+      </div>
     </div>
-    <div class="field"><label>Solicita</label><input type="text" id="no-solicita" placeholder="Nombre de quien solicita el servicio"></div>
+    <div class="field">
+      <label>Solicita</label>
+      <input type="text" id="no-solicita" placeholder="Escribe o selecciona" list="dl-solicitantes" autocomplete="off">
+      <datalist id="dl-solicitantes"></datalist>
+    </div>
     <div class="r2">
-      <div class="field"><label>Empresa</label><input type="text" id="no-empresa" placeholder="Empresa"></div>
-      <div class="field"><label>Centro de costo</label><input type="text" id="no-costo" placeholder="Centro de costo"></div>
+      <div class="field">
+        <label>Empresa</label>
+        <input type="text" id="no-empresa" placeholder="Escribe o selecciona" list="dl-empresas" autocomplete="off">
+        <datalist id="dl-empresas"></datalist>
+      </div>
+      <div class="field">
+        <label>Centro de costo</label>
+        <input type="text" id="no-costo" placeholder="Escribe o selecciona" list="dl-costos" autocomplete="off">
+        <datalist id="dl-costos"></datalist>
+      </div>
     </div>
     <div class="r2">
       <div class="field"><label>Traslado desde <span style="color:#A32D2D">*</span></label><input type="text" id="no-desde" placeholder="Origen"></div>
@@ -1511,23 +1531,51 @@ async function adminDeleteOrden() {
   } catch(e) { toast('Error: ' + e.message, 'err'); }
 }
 
-function openCreateOrden() {
-  ['no-chofer','no-area','no-solicita','no-empresa','no-costo','no-desde','no-hasta','no-detalle','no-wsp'].forEach(id => {
+async function openCreateOrden() {
+  // Limpiar todos los campos de texto y de catálogo
+  ['no-chofer','no-area','no-solicita','no-empresa','no-costo',
+   'no-desde','no-hasta','no-detalle','no-wsp'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  document.getElementById('no-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('no-fecha').value   = new Date().toISOString().split('T')[0];
   document.getElementById('no-vehiculo').value = '';
-  document.getElementById('no-total').value = '';
-  document.getElementById('no-hinicio').value = '';
+  document.getElementById('no-total').value    = '';
+  document.getElementById('no-hinicio').value  = '';
   document.getElementById('no-err').textContent = '';
-  // Poblar usuarios
-  const sel = document.getElementById('no-user');
-  sel.innerHTML = '<option value="">— Seleccionar usuario —</option>';
+
+  // Poblar selector de usuarios
+  const selUser = document.getElementById('no-user');
+  selUser.innerHTML = '<option value="">— Seleccionar usuario —</option>';
   allUsers.forEach(u => {
-    const o = document.createElement('option'); o.value = u.user_id;
-    o.textContent = u.email || u.user_id; sel.appendChild(o);
+    const o = document.createElement('option');
+    o.value = u.user_id; o.textContent = u.email || u.user_id; selUser.appendChild(o);
   });
+
   openModal('modal-create-orden');
+
+  // Cargar catálogos desde Supabase en los datalists
+  try {
+    const rows = await adminFetch('catalogs?order=tipo.asc,valor.asc');
+    const byTipo = {};
+    rows.forEach(r => { if (!byTipo[r.tipo]) byTipo[r.tipo] = []; byTipo[r.tipo].push(r.valor); });
+
+    const MAP = {
+      'dl-choferes':     'choferes',
+      'dl-areas':        'areas',
+      'dl-solicitantes': 'solicitantes',
+      'dl-empresas':     'empresas',
+      'dl-costos':       'costos'
+    };
+
+    Object.entries(MAP).forEach(([dlId, tipo]) => {
+      const dl = document.getElementById(dlId); if (!dl) return;
+      dl.innerHTML = (byTipo[tipo] || [])
+        .map(v => `<option value="${escH(v)}">`)
+        .join('');
+    });
+  } catch(e) {
+    // datalists quedan vacíos, el usuario puede escribir manualmente
+  }
 }
 
 async function createOrden() {
