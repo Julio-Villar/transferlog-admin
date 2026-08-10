@@ -757,8 +757,12 @@ function toast(msg, type = '') {
 }
 function fmtDate(d) {
   if (!d) return '—';
-  const dt = new Date(d); if (isNaN(dt)) { const [y,m,da]=d.split('-'); return `${da}/${m}/${y}`; }
-  return dt.toLocaleDateString('es-CL');
+  // Tomar solo la parte YYYY-MM-DD (antes de T si viene con timestamp)
+  const datePart = String(d).split('T')[0];
+  const parts = datePart.split('-');
+  if (parts.length !== 3) return d;
+  const [y, m, da] = parts;
+  return `${da}/${m}/${y}`;
 }
 function fmtCLP(n) { return '$' + Number(n||0).toLocaleString('es-CL'); }
 function fmtK(n) { return n >= 1000000 ? '$'+(n/1000000).toFixed(1)+'M' : n >= 1000 ? '$'+(n/1000).toFixed(0)+'K' : fmtCLP(n); }
