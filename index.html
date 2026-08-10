@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>TransferLog · Admin</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -823,7 +826,7 @@ async function loadDashboard() {
   setSyncBadge(true);
   try {
     const [receipts, routes, profiles] = await Promise.all([
-      adminFetch('receipts?select=id,fecha,total,vehiculo,desde,hasta,empresa,detalle,chofer,user_id'),
+      adminFetch('receipts?select=id,fecha,total,vehiculo,desde,hasta,empresa,detalle,chofer,user_id,created_at'),
       adminFetch('routes?select=id'),
       adminFetch('profiles?select=user_id,email,rol')
     ]);
@@ -845,8 +848,12 @@ async function loadDashboard() {
     const byUserLabeled = {}; Object.entries(byUser).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([uid,v])=>{ byUserLabeled[emailMap[uid]||uid.substring(0,8)]=v; });
     renderBarChart('dash-user-chart', byUserLabeled, true);
 
-    // Últimos recibos
-    const recent = [...receipts].sort((a,b)=>b.fecha?.localeCompare(a.fecha||'')??0).slice(0,10);
+    // Últimos recibos — ordenar por created_at para tener los más recientes primero
+    const recent = [...receipts].sort((a,b)=>{
+      const da = (a.created_at||a.fecha||'');
+      const db = (b.created_at||b.fecha||'');
+      return db.localeCompare(da);
+    }).slice(0,10);
     const tbody = document.querySelector('#dash-recent tbody');
     tbody.innerHTML = recent.length ? recent.map(r=>`
       <tr>
