@@ -451,7 +451,31 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
             <button class="btn primary" onclick="saveAdminSettings()"><i class="ti ti-device-floppy"></i> Guardar valores</button>
           </div>
 
-          <!-- Agregar catálogos -->
+          <!-- Viajes nocturnos -->
+          <div class="card">
+            <div class="card-title"><i class="ti ti-moon" style="color:#4A6FA5"></i> Cobro por viaje nocturno</div>
+            <div class="field">
+              <label>Valor adicional nocturno ($)</label>
+              <input type="number" id="adm-night-value" placeholder="0" inputmode="numeric">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">Se suma al total del recibo cuando la H. Inicio cae dentro de la franja nocturna.</div>
+            </div>
+            <div class="r2">
+              <div class="field">
+                <label>Desde (hora nocturna)</label>
+                <input type="time" id="adm-night-from" value="22:00">
+                <div style="font-size:11px;color:var(--text2);margin-top:3px">Ej: 22:00</div>
+              </div>
+              <div class="field">
+                <label>Hasta (hora nocturna)</label>
+                <input type="time" id="adm-night-to" value="06:00">
+                <div style="font-size:11px;color:var(--text2);margin-top:3px">Ej: 06:00 (del día siguiente)</div>
+              </div>
+            </div>
+            <div style="background:#E6F1FB;border-radius:var(--rsm);padding:10px;font-size:12px;color:#0C447C;margin-bottom:12px">
+              <i class="ti ti-info-circle"></i> La franja nocturna puede cruzar la medianoche. Ej: 22:00 → 06:00 cubre desde las 22:00 hasta las 06:00 del día siguiente.
+            </div>
+            <button class="btn primary" onclick="saveNightSettings()"><i class="ti ti-device-floppy"></i> Guardar cobro nocturno</button>
+          </div>
           <div class="card">
             <div class="card-title">Agregar dato frecuente</div>
             <div class="field">
@@ -1367,8 +1391,11 @@ async function loadConfiguracion() {
     // Cargar settings
     const settings = await adminFetch('settings?select=key,value');
     const sm = {}; settings.forEach(s => sm[s.key] = s.value);
-    document.getElementById('adm-stop-value').value = sm.extraStopValue || '';
-    document.getElementById('adm-wait-value').value = sm.waitValue      || '';
+    document.getElementById('adm-stop-value').value  = sm.extraStopValue || '';
+    document.getElementById('adm-wait-value').value  = sm.waitValue      || '';
+    document.getElementById('adm-night-value').value = sm.nightValue     || '';
+    document.getElementById('adm-night-from').value  = sm.nightFrom      || '22:00';
+    document.getElementById('adm-night-to').value    = sm.nightTo        || '06:00';
 
     // Cargar catálogos
     await loadAdminCatalogs();
@@ -1395,7 +1422,34 @@ async function saveAdminSettings() {
   } catch(e) { toast('Error: ' + e.message, 'err'); }
 }
 
-async function loadAdminCatalogs() {
+async function saveNightSettings() {
+  const nightVal  = String(Number(document.getElementById('adm-night-value').value || 0));
+  const nightFrom = document.getElementById('adm-night-from').value || '22:00';
+  const nightTo   = document.getElementById('adm-night-to').value   || '06:00';
+  try {
+    // Upsert cada key — PATCH si existe, POST si no
+    const keys = [
+      { key:'nightValue', value: nightVal  },
+      { key:'nightFrom',  value: nightFrom },
+      { key:'nightTo',    value: nightTo   }
+    ];
+    await Promise.all(keys.map(async ({key, value}) => {
+      const existing = await adminFetch('settings?key=eq.'+key+'&select=id');
+      if (existing.length) {
+        return adminFetch('settings?key=eq.'+key, {
+          method:'PATCH',
+          body: JSON.stringify({ value, updated_at: new Date().toISOString() })
+        });
+      } else {
+        return adminFetch('settings', {
+          method:'POST',
+          body: JSON.stringify({ key, value, updated_at: new Date().toISOString() })
+        });
+      }
+    }));
+    toast('Cobro nocturno guardado ✓', 'ok');
+  } catch(e) { toast('Error: ' + e.message, 'err'); }
+}
   let q = 'catalogs?order=tipo.asc,valor.asc';
   if (_currentCatalogFilter) q += '&tipo=eq.' + _currentCatalogFilter;
   const rows = await adminFetch(q);
