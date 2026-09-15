@@ -688,15 +688,26 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 // ── Config ────────────────────────────────────────────────
 const SB_URL  = 'https://luosbdpumkoqsfiwqjft.supabase.co';
 const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1b3NiZHB1bWtvcXNmaXdxamZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NzcwMjQsImV4cCI6MjA5NzQ1MzAyNH0.uqr2LcLICRxN6Galo8mqeeawzNk48_oS7S5WQmuZFwo';
-// Para operaciones admin (crear usuarios, leer todos los datos) necesitas la Service Role Key.
-// Agrégala aquí — mantén este archivo PRIVADO, nunca lo subas a un repo público.
 const SB_SERVICE = localStorage.getItem('tl_service_key') || '';
 
 const {jsPDF} = window.jspdf || {};
-const _sb = supabase.createClient(SB_URL, SB_ANON);
+
+// Cliente Supabase — con protección ante fallos de carga del SDK
+let _sb = null;
+try {
+  if (window.supabase && window.supabase.createClient) {
+    _sb = window.supabase.createClient(SB_URL, SB_ANON, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+  } else {
+    console.error('Supabase SDK no disponible');
+  }
+} catch(e) {
+  console.error('Error al inicializar Supabase:', e);
+}
 
 let adminSession = null;
-let allUsers     = [];    // cache de usuarios
+let allUsers     = [];
 let currentEditUserId = null;
 let currentReciboId   = null;
 
@@ -707,55 +718,72 @@ async function doAdminLogin() {
   const err   = document.getElementById('a-err');
   const btn   = document.getElementById('a-btn');
   err.textContent = '';
+
   if (!email || !pass) { err.textContent = 'Ingresa correo y contraseña'; return; }
+
   btn.innerHTML = '<span class="spin"></span> Ingresando...'; btn.disabled = true;
 
-  // Guardar service key si fue ingresada manualmente (primer uso)
+  // Guardar service key si fue ingresada
   const skInput = document.getElementById('a-service-key');
   if (skInput && skInput.value.trim()) {
     localStorage.setItem('tl_service_key', skInput.value.trim());
     location.reload(); return;
   }
 
-  const { data, error } = await _sb.auth.signInWithPassword({ email, password: pass });
-  btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
-  if (error) { err.textContent = 'Credenciales incorrectas'; return; }
-
-  // Guardar sesión antes de usarla
-  adminSession = data.session;
-
-  // Verificar rol en profiles usando el token recién obtenido
-  let rol = null;
   try {
-    const token = SB_SERVICE || data.session.access_token;
-    const res = await fetch(SB_URL + '/rest/v1/profiles?user_id=eq.' + data.user.id + '&select=rol', {
+    // Login directo vía REST — no depende del SDK
+    const loginRes = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: {
+        'apikey':       SB_ANON,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password: pass })
+    });
+
+    const loginData = await loginRes.json();
+
+    if (!loginRes.ok || loginData.error) {
+      err.textContent = loginData.error_description || loginData.msg || 'Credenciales incorrectas';
+      btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
+      return;
+    }
+
+    const accessToken = loginData.access_token;
+    const userId      = loginData.user?.id;
+    adminSession      = { access_token: accessToken, user: loginData.user };
+
+    // Verificar rol
+    const profRes = await fetch(SB_URL + '/rest/v1/profiles?user_id=eq.' + userId + '&select=rol', {
       headers: {
         'apikey':        SB_SERVICE || SB_ANON,
-        'Authorization': 'Bearer ' + token,
-        'Content-Type':  'application/json'
+        'Authorization': 'Bearer ' + (SB_SERVICE || accessToken)
       }
     });
-    const profile = await res.json();
-    rol = profile[0]?.rol;
+    const profiles = await profRes.json();
+    const rol = profiles[0]?.rol;
+
+    if (rol !== 'admin' && rol !== 'supervisor') {
+      err.textContent = rol
+        ? 'Rol "' + rol + '" sin permisos de admin'
+        : 'Perfil no encontrado — ejecuta el SQL de configuración';
+      adminSession = null;
+      btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
+      return;
+    }
+
+    // Éxito — mostrar panel
+    document.getElementById('sb-email').textContent = email;
+    document.getElementById('auth-overlay').classList.remove('show');
+    document.getElementById('app-layout').style.display = 'flex';
+    initDateFilters();
+    loadDashboard();
+    loadUsersForSelects();
+
   } catch(e) {
-    err.textContent = 'Error al verificar permisos. Intenta de nuevo.';
-    await _sb.auth.signOut(); adminSession = null;
-    return;
+    err.textContent = 'Error de conexión: ' + e.message;
+    btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
   }
-
-  if (rol !== 'admin' && rol !== 'supervisor') {
-    err.textContent = rol
-      ? 'Tu cuenta tiene rol "'+rol+'" — necesitas admin o supervisor'
-      : 'No se encontró tu perfil. Ejecuta el SQL de configuración en Supabase.';
-    await _sb.auth.signOut(); adminSession = null; return;
-  }
-
-  document.getElementById('sb-email').textContent = data.user.email;
-  document.getElementById('auth-overlay').classList.remove('show');
-  document.getElementById('app-layout').style.display = 'flex';
-  initDateFilters();
-  loadDashboard();
-  loadUsersForSelects();
 }
 
 async function adminLogout() {
