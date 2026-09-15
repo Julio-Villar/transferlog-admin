@@ -1392,38 +1392,6 @@ async function exportGroupPDF() {
   toast('PDF agrupado generado ✓','ok');
 }
 
-// ── Service key prompt en login ───────────────────────────
-// Si no hay service key configurada, mostrar campo extra
-window.addEventListener('DOMContentLoaded', ()=>{
-  if (!SB_SERVICE) {
-    const card = document.querySelector('.auth-card');
-    const hint = document.createElement('div');
-    hint.innerHTML = `
-      <details style="margin-top:14px">
-        <summary style="font-size:11px;color:var(--text2);cursor:pointer">Configurar Service Role Key (requerida para gestión de usuarios)</summary>
-        <div style="margin-top:8px">
-          <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Service Role Key (Supabase → Settings → API)</label>
-          <input id="a-service-key" type="password" style="width:100%;padding:8px;font-size:12px;border:1px solid #e4e4e7;border-radius:6px;font-family:inherit" placeholder="eyJ...">
-          <p style="font-size:10px;color:#A32D2D;margin-top:4px">⚠ Mantén este archivo privado. Nunca lo publiques en repositorios públicos.</p>
-          <button class="btn sm primary" style="margin-top:8px" onclick="saveServiceKey()">Guardar y recargar</button>
-        </div>
-      </details>`;
-    card.appendChild(hint);
-  }
-  // Auth listener
-  _sb.auth.onAuthStateChange(async(event,session)=>{
-    if(!session) return;
-  });
-});
-
-function saveServiceKey() {
-  const v = document.getElementById('a-service-key')?.value?.trim();
-  if(!v) return;
-  localStorage.setItem('tl_service_key', v);
-  toast('Service key guardada. Recargando...','ok');
-  setTimeout(()=>location.reload(),1000);
-}
-
 // ── CONFIGURACIÓN ─────────────────────────────────────────
 PAGE_META['configuracion'] = { title:'Configuración', sub:'Valores de cobro y datos frecuentes del sistema' };
 
@@ -1731,9 +1699,37 @@ async function createOrden() {
 }
 
 // Cerrar overlays al hacer click afuera
-document.querySelectorAll('.overlay').forEach(o=>{
-  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('show'); });
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.overlay').forEach(o=>{
+    o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('show'); });
+  });
+
+  // Prompt de service key si no está configurada
+  if (!SB_SERVICE) {
+    const card = document.querySelector('.auth-card');
+    if (card) {
+      const hint = document.createElement('div');
+      hint.innerHTML = `
+        <details style="margin-top:14px">
+          <summary style="font-size:11px;color:var(--text2);cursor:pointer">Configurar Service Role Key</summary>
+          <div style="margin-top:8px">
+            <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Service Role Key (Supabase → Settings → API)</label>
+            <input id="a-service-key" type="password" style="width:100%;padding:8px;font-size:12px;border:1px solid #e4e4e7;border-radius:6px;font-family:inherit" placeholder="eyJ...">
+            <p style="font-size:10px;color:#A32D2D;margin-top:4px">⚠ Mantén este archivo privado.</p>
+            <button onclick="saveServiceKey()" style="margin-top:8px;padding:6px 12px;background:#185FA5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">Guardar y recargar</button>
+          </div>
+        </details>`;
+      card.appendChild(hint);
+    }
+  }
 });
+
+function saveServiceKey() {
+  const v = document.getElementById('a-service-key')?.value?.trim();
+  if(!v) return;
+  localStorage.setItem('tl_service_key', v);
+  location.reload();
+}
 </script>
 </body>
 </html>
