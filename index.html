@@ -721,12 +721,32 @@ async function doAdminLogin() {
   btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
   if (error) { err.textContent = 'Credenciales incorrectas'; return; }
 
-  // Verificar que sea admin en la tabla profiles
+  // Guardar sesión antes de usarla
   adminSession = data.session;
-  const profile = await adminFetch('profiles?user_id=eq.'+data.user.id+'&select=rol');
-  const rol = profile[0]?.rol;
+
+  // Verificar rol en profiles usando el token recién obtenido
+  let rol = null;
+  try {
+    const token = SB_SERVICE || data.session.access_token;
+    const res = await fetch(SB_URL + '/rest/v1/profiles?user_id=eq.' + data.user.id + '&select=rol', {
+      headers: {
+        'apikey':        SB_SERVICE || SB_ANON,
+        'Authorization': 'Bearer ' + token,
+        'Content-Type':  'application/json'
+      }
+    });
+    const profile = await res.json();
+    rol = profile[0]?.rol;
+  } catch(e) {
+    err.textContent = 'Error al verificar permisos. Intenta de nuevo.';
+    await _sb.auth.signOut(); adminSession = null;
+    return;
+  }
+
   if (rol !== 'admin' && rol !== 'supervisor') {
-    err.textContent = 'Tu cuenta no tiene permisos de administrador';
+    err.textContent = rol
+      ? 'Tu cuenta tiene rol "'+rol+'" — necesitas admin o supervisor'
+      : 'No se encontró tu perfil. Ejecuta el SQL de configuración en Supabase.';
     await _sb.auth.signOut(); adminSession = null; return;
   }
 
