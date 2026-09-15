@@ -1466,6 +1466,8 @@ async function saveNightSettings() {
     toast('Cobro nocturno guardado ✓', 'ok');
   } catch(e) { toast('Error: ' + e.message, 'err'); }
 }
+
+async function loadAdminCatalogs() {
   let q = 'catalogs?order=tipo.asc,valor.asc';
   if (_currentCatalogFilter) q += '&tipo=eq.' + _currentCatalogFilter;
   const rows = await adminFetch(q);
