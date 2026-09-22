@@ -286,7 +286,7 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
         <div class="card" style="padding:0">
           <div class="tbl-wrap">
             <table class="tbl" id="users-table">
-              <thead><tr><th>Correo</th><th>Rol</th><th>Creado</th><th>Recibos</th><th>Monto total</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>Nombre</th><th>Correo</th><th>Tipo</th><th>Rol</th><th>Creado</th><th>Recibos</th><th>Monto total</th><th>Acciones</th></tr></thead>
               <tbody id="users-tbody"></tbody>
             </table>
           </div>
@@ -531,20 +531,35 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <span class="modal-title">Crear usuario</span>
       <button class="modal-close" onclick="closeModal('modal-create-user')">×</button>
     </div>
+    <!-- Tipo de usuario -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      <button id="tipo-btn-app" onclick="setTipoUsuario('app')"
+        style="padding:12px;border:1px solid var(--border-color,#e4e4e7);border-radius:8px;background:#E6F1FB;color:#0C447C;font-family:inherit;cursor:pointer;font-size:13px;font-weight:600;border-color:#B5D4F4">
+        <i class="ti ti-user" style="display:block;font-size:22px;margin-bottom:4px"></i>
+        Usuario App
+      </button>
+      <button id="tipo-btn-conductor" onclick="setTipoUsuario('conductor')"
+        style="padding:12px;border:1px solid #e4e4e7;border-radius:8px;background:transparent;color:#6b6b6b;font-family:inherit;cursor:pointer;font-size:13px;font-weight:500">
+        <i class="ti ti-steering-wheel" style="display:block;font-size:22px;margin-bottom:4px"></i>
+        Conductor
+      </button>
+    </div>
+    <div class="field"><label>Nombre completo</label><input type="text" id="nu-nombre" placeholder="Ej: Juan Pérez"></div>
     <div class="field"><label>Correo electrónico</label><input type="email" id="nu-email" placeholder="correo@empresa.com"></div>
     <div class="field"><label>Contraseña temporal</label><input type="text" id="nu-pass" placeholder="Mínimo 6 caracteres"></div>
-    <div class="field">
-      <label>Rol</label>
+    <!-- Solo visible para usuarios de app -->
+    <div id="nu-rol-section" class="field">
+      <label>Rol en la app admin</label>
       <select id="nu-role">
-        <option value="operador">Operador (acceso básico)</option>
-        <option value="supervisor">Supervisor (puede ver todos los recibos)</option>
+        <option value="operador">Operador — solo ve sus propios datos</option>
+        <option value="supervisor">Supervisor — ve todos los recibos</option>
         <option value="admin">Administrador</option>
       </select>
     </div>
     <div id="nu-err" style="font-size:12px;color:var(--red);min-height:16px"></div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('modal-create-user')">Cancelar</button>
-      <button class="btn primary" id="nu-btn" onclick="createUser()"><i class="ti ti-user-plus"></i> Crear usuario</button>
+      <button class="btn primary" id="nu-btn" onclick="createUser()"><i class="ti ti-user-plus"></i> Crear</button>
     </div>
   </div>
 </div>
@@ -556,19 +571,28 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <span class="modal-title">Editar usuario</span>
       <button class="modal-close" onclick="closeModal('modal-edit-user')">×</button>
     </div>
-    <div id="eu-email-disp" style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:14px"></div>
-    <div class="field">
+    <div id="eu-info" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 12px;background:var(--bgs);border-radius:8px">
+      <div id="eu-avatar" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:#E6F1FB;color:#185FA5"></div>
+      <div>
+        <div id="eu-nombre-disp" style="font-size:14px;font-weight:600;color:var(--text)"></div>
+        <div id="eu-email-disp" style="font-size:12px;color:var(--text2)"></div>
+      </div>
+      <div id="eu-tipo-badge" style="margin-left:auto"></div>
+    </div>
+    <div class="field"><label>Nombre completo</label><input type="text" id="eu-nombre" placeholder="Nombre completo"></div>
+    <div id="eu-rol-section" class="field">
       <label>Rol</label>
       <select id="eu-role">
         <option value="operador">Operador</option>
         <option value="supervisor">Supervisor</option>
         <option value="admin">Administrador</option>
+        <option value="conductor">Conductor</option>
       </select>
     </div>
     <div class="field"><label>Nueva contraseña (dejar en blanco para no cambiar)</label><input type="password" id="eu-pass" placeholder="Nueva contraseña"></div>
     <div id="eu-err" style="font-size:12px;color:var(--red);min-height:16px"></div>
     <div class="modal-footer">
-      <button class="btn danger" onclick="confirmDeleteUser()">Eliminar usuario</button>
+      <button class="btn danger" onclick="confirmDeleteUser()"><i class="ti ti-trash"></i> Eliminar</button>
       <button class="btn" onclick="closeModal('modal-edit-user')">Cancelar</button>
       <button class="btn primary" id="eu-btn" onclick="updateUser()"><i class="ti ti-check"></i> Guardar</button>
     </div>
@@ -958,6 +982,26 @@ function renderBarChart(containerId, data, isMoney=false) {
 }
 
 // ── USUARIOS ──────────────────────────────────────────────
+// ── USUARIOS ──────────────────────────────────────────────
+
+let _tipoNuevoUsuario = 'app'; // 'app' | 'conductor'
+
+function setTipoUsuario(tipo) {
+  _tipoNuevoUsuario = tipo;
+  const btnApp  = document.getElementById('tipo-btn-app');
+  const btnCond = document.getElementById('tipo-btn-conductor');
+  const rolSec  = document.getElementById('nu-rol-section');
+  if (tipo === 'app') {
+    btnApp.style.cssText  = 'padding:12px;border:1px solid #B5D4F4;border-radius:8px;background:#E6F1FB;color:#0C447C;font-family:inherit;cursor:pointer;font-size:13px;font-weight:600';
+    btnCond.style.cssText = 'padding:12px;border:1px solid #e4e4e7;border-radius:8px;background:transparent;color:#6b6b6b;font-family:inherit;cursor:pointer;font-size:13px;font-weight:500';
+    rolSec.style.display = '';
+  } else {
+    btnCond.style.cssText = 'padding:12px;border:1px solid #B5D4F4;border-radius:8px;background:#E6F1FB;color:#0C447C;font-family:inherit;cursor:pointer;font-size:13px;font-weight:600';
+    btnApp.style.cssText  = 'padding:12px;border:1px solid #e4e4e7;border-radius:8px;background:transparent;color:#6b6b6b;font-family:inherit;cursor:pointer;font-size:13px;font-weight:500';
+    rolSec.style.display = 'none';
+  }
+}
+
 async function loadUsers() {
   setSyncBadge(true);
   try {
@@ -966,92 +1010,136 @@ async function loadUsers() {
       adminFetch('receipts?select=user_id,total')
     ]);
     allUsers = profiles;
-
-    const receiptsByUser = {}; receipts.forEach(r=>{ if(r.user_id){ receiptsByUser[r.user_id]=receiptsByUser[r.user_id]||{count:0,total:0}; receiptsByUser[r.user_id].count++; receiptsByUser[r.user_id].total+=Number(r.total||0); } });
+    const receiptsByUser = {};
+    receipts.forEach(r=>{ if(r.user_id){ receiptsByUser[r.user_id]=receiptsByUser[r.user_id]||{count:0,total:0}; receiptsByUser[r.user_id].count++; receiptsByUser[r.user_id].total+=Number(r.total||0); } });
 
     document.getElementById('users-count').textContent = profiles.length + ' usuarios registrados';
     const tbody = document.getElementById('users-tbody');
+
+    const tipoBadge = (rol) => {
+      if (rol === 'conductor') return '<span class="badge amber"><i class="ti ti-steering-wheel"></i> Conductor</span>';
+      return '<span class="badge blue"><i class="ti ti-device-mobile"></i> App</span>';
+    };
+
     tbody.innerHTML = profiles.length ? profiles.map(p=>{
       const stats = receiptsByUser[p.user_id]||{count:0,total:0};
       return `<tr>
-        <td><strong>${escH(p.email||'—')}</strong></td>
+        <td><strong>${escH(p.nombre||'—')}</strong></td>
+        <td class="muted">${escH(p.email||'—')}</td>
+        <td>${tipoBadge(p.rol)}</td>
         <td>${rolBadge(p.rol)}</td>
-        <td class="muted">${fmtDate(p.created_at)}</td>
+        <td class="muted">${fmtDate((p.created_at||'').split('T')[0])}</td>
         <td>${stats.count}</td>
         <td style="font-weight:500">${fmtCLP(stats.total)}</td>
         <td><button class="btn sm ghost" onclick="openEditUser('${p.user_id}')"><i class="ti ti-pencil"></i> Editar</button></td>
-      </tr>`}).join('')
-    : '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Sin usuarios</td></tr>';
+      </tr>`;
+    }).join('')
+    : '<tr><td colspan="8" class="muted" style="text-align:center;padding:24px">Sin usuarios</td></tr>';
   } catch(e) { toast('Error: '+e.message,'err'); }
   setSyncBadge(false);
 }
 
 function openCreateUser() {
-  document.getElementById('nu-email').value=''; document.getElementById('nu-pass').value='';
-  document.getElementById('nu-role').value='operador'; document.getElementById('nu-err').textContent='';
+  document.getElementById('nu-nombre').value = '';
+  document.getElementById('nu-email').value  = '';
+  document.getElementById('nu-pass').value   = '';
+  document.getElementById('nu-role').value   = 'operador';
+  document.getElementById('nu-err').textContent = '';
+  setTipoUsuario('app');
   openModal('modal-create-user');
 }
 
 async function createUser() {
-  const email = document.getElementById('nu-email').value.trim();
-  const pass  = document.getElementById('nu-pass').value.trim();
-  const rol   = document.getElementById('nu-role').value;
-  const err   = document.getElementById('nu-err');
-  err.textContent='';
-  if (!email||!pass) { err.textContent='Completa todos los campos'; return; }
-  if (pass.length<6) { err.textContent='La contraseña debe tener al menos 6 caracteres'; return; }
-  setBtnLoad('nu-btn',true,'<i class="ti ti-user-plus"></i> Crear usuario');
+  const nombre = document.getElementById('nu-nombre').value.trim();
+  const email  = document.getElementById('nu-email').value.trim();
+  const pass   = document.getElementById('nu-pass').value.trim();
+  const rol    = _tipoNuevoUsuario === 'conductor' ? 'conductor' : document.getElementById('nu-role').value;
+  const err    = document.getElementById('nu-err');
+  err.textContent = '';
+  if (!nombre)       { err.textContent = 'El nombre es obligatorio'; return; }
+  if (!email||!pass) { err.textContent = 'Completa correo y contraseña'; return; }
+  if (pass.length<6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
+  setBtnLoad('nu-btn', true, '<i class="ti ti-user-plus"></i> Crear');
   try {
-    // Crear usuario vía Admin Auth API (requiere service key)
     const userData = await adminAuthFetch('users', { email, password: pass, email_confirm: true });
     const uid = userData.id;
-    // Crear perfil con rol
-    await adminFetch('profiles', { method:'POST', body:JSON.stringify({ user_id:uid, email, rol, created_at:new Date().toISOString() }) });
-    toast('Usuario creado ✓','ok'); closeModal('modal-create-user'); loadUsers();
+    await adminFetch('profiles', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: uid, email, nombre, rol, created_at: new Date().toISOString() })
+    });
+    // Si es conductor, agregarlo también al catálogo de choferes
+    if (rol === 'conductor') {
+      await adminFetch('catalogs', {
+        method: 'POST',
+        body: JSON.stringify({ tipo: 'choferes', valor: nombre, created_at: new Date().toISOString() })
+      });
+    }
+    toast('Usuario creado ✓', 'ok');
+    closeModal('modal-create-user');
+    loadUsers();
+    loadUsersForSelects();
   } catch(e) {
-    if (e.message.includes('Service Role')) {
-      err.innerHTML = 'Necesitas configurar la <strong>Service Role Key</strong>.<br>Ve a Supabase → Settings → API → service_role key.';
-    } else { err.textContent = 'Error: '+e.message; }
+    err.textContent = e.message.includes('Service Role')
+      ? 'Necesitas configurar la Service Role Key en Supabase → Settings → API'
+      : 'Error: ' + e.message;
   }
-  setBtnLoad('nu-btn',false,'<i class="ti ti-user-plus"></i> Crear usuario');
+  setBtnLoad('nu-btn', false, '<i class="ti ti-user-plus"></i> Crear');
 }
 
 function openEditUser(uid) {
   const p = allUsers.find(u=>u.user_id===uid); if(!p) return;
   currentEditUserId = uid;
-  document.getElementById('eu-email-disp').textContent = p.email||'—';
-  document.getElementById('eu-role').value = p.rol||'operador';
-  document.getElementById('eu-pass').value = '';
+  // Avatar e info
+  const esConductor = p.rol === 'conductor';
+  document.getElementById('eu-avatar').innerHTML    = esConductor ? '<i class="ti ti-steering-wheel"></i>' : '<i class="ti ti-user"></i>';
+  document.getElementById('eu-nombre-disp').textContent = p.nombre || '—';
+  document.getElementById('eu-email-disp').textContent  = p.email  || '—';
+  document.getElementById('eu-tipo-badge').innerHTML    = esConductor
+    ? '<span class="badge amber">Conductor</span>'
+    : '<span class="badge blue">Usuario App</span>';
+  // Campos editables
+  document.getElementById('eu-nombre').value = p.nombre || '';
+  document.getElementById('eu-role').value   = p.rol    || 'operador';
+  document.getElementById('eu-pass').value   = '';
   document.getElementById('eu-err').textContent = '';
   openModal('modal-edit-user');
 }
 
 async function updateUser() {
-  const rol  = document.getElementById('eu-role').value;
-  const pass = document.getElementById('eu-pass').value.trim();
-  const err  = document.getElementById('eu-err');
-  err.textContent='';
-  setBtnLoad('eu-btn',true,'<i class="ti ti-check"></i> Guardar');
+  const nombre = document.getElementById('eu-nombre').value.trim();
+  const rol    = document.getElementById('eu-role').value;
+  const pass   = document.getElementById('eu-pass').value.trim();
+  const err    = document.getElementById('eu-err');
+  err.textContent = '';
+  if (!nombre) { err.textContent = 'El nombre es obligatorio'; return; }
+  setBtnLoad('eu-btn', true, '<i class="ti ti-check"></i> Guardar');
   try {
-    await adminFetch('profiles?user_id=eq.'+currentEditUserId, { method:'PATCH', body:JSON.stringify({rol}) });
+    await adminFetch('profiles?user_id=eq.'+currentEditUserId, {
+      method: 'PATCH',
+      body: JSON.stringify({ nombre, rol })
+    });
     if (pass) {
       if (pass.length<6) { err.textContent='La contraseña debe tener al menos 6 caracteres'; setBtnLoad('eu-btn',false,'<i class="ti ti-check"></i> Guardar'); return; }
-      await adminAuthFetch('users/'+currentEditUserId, {password:pass});
+      await adminAuthFetch('users/'+currentEditUserId, { password: pass });
     }
-    toast('Usuario actualizado ✓','ok'); closeModal('modal-edit-user'); loadUsers();
-  } catch(e) { err.textContent='Error: '+e.message; }
-  setBtnLoad('eu-btn',false,'<i class="ti ti-check"></i> Guardar');
+    toast('Usuario actualizado ✓', 'ok');
+    closeModal('modal-edit-user');
+    loadUsers();
+  } catch(e) { err.textContent = 'Error: '+e.message; }
+  setBtnLoad('eu-btn', false, '<i class="ti ti-check"></i> Guardar');
 }
 
 async function confirmDeleteUser() {
   if (!confirm('¿Eliminar este usuario y todos sus datos? Esta acción no se puede deshacer.')) return;
   try {
     await adminFetch('receipts?user_id=eq.'+currentEditUserId, { method:'DELETE' });
-    await adminFetch('routes?user_id=eq.'+currentEditUserId, { method:'DELETE' });
+    await adminFetch('routes?user_id=eq.'+currentEditUserId,   { method:'DELETE' });
     await adminFetch('profiles?user_id=eq.'+currentEditUserId, { method:'DELETE' });
     await adminAuthFetch('users/'+currentEditUserId+'/delete', {});
-    toast('Usuario eliminado','ok'); closeModal('modal-edit-user'); loadUsers();
-  } catch(e) { toast('Error: '+e.message,'err'); }
+    toast('Usuario eliminado', 'ok');
+    closeModal('modal-edit-user');
+    loadUsers();
+  } catch(e) { toast('Error: '+e.message, 'err'); }
 }
 
 async function loadUsersForSelects() {
