@@ -190,6 +190,17 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 .flex-end{display:flex;justify-content:flex-end;gap:8px}
 .mt8{margin-top:8px}
 .pill-row{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Agenda de conductores */
+.agenda-axis{display:flex;margin-bottom:6px}
+.agenda-axis .agenda-label{width:120px;flex-shrink:0}
+.agenda-axis-hours{flex:1;display:flex;justify-content:space-between;font-size:11px;color:var(--text2)}
+.agenda-row{display:flex;align-items:center;gap:0;margin-bottom:10px}
+.agenda-label{width:120px;flex-shrink:0;font-size:13px;font-weight:500;padding-right:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.agenda-track{position:relative;flex:1;height:34px;background:var(--bgs);border-radius:6px;min-width:600px}
+.agenda-block{position:absolute;top:4px;bottom:4px;background:var(--blue-l);border:1px solid var(--blue);color:var(--blue-d);border-radius:4px;font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;cursor:pointer;padding:0 4px}
+.agenda-block.conflict{background:var(--red-l);border-color:var(--red);color:var(--red);font-weight:700}
+.agenda-wrap{overflow-x:auto}
 </style>
 </head>
 <body>
@@ -226,6 +237,7 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <button class="snav-btn" onclick="goTo('rutas')" id="nav-rutas"><i class="ti ti-map-pin"></i>Rutas globales</button>
       <button class="snav-btn" onclick="goTo('recibos')" id="nav-recibos"><i class="ti ti-file-text"></i>Todos los recibos</button>
       <button class="snav-btn" onclick="goTo('ordenes')" id="nav-ordenes"><i class="ti ti-send"></i>Órdenes de viaje</button>
+      <button class="snav-btn" onclick="goTo('agenda')" id="nav-agenda"><i class="ti ti-calendar-time"></i>Agenda conductores</button>
       <div class="snav-section">Estadísticas</div>
       <button class="snav-btn" onclick="goTo('estadisticas')" id="nav-estadisticas"><i class="ti ti-chart-bar"></i>Estadísticas</button>
       <button class="snav-btn" onclick="goTo('reportes')" id="nav-reportes"><i class="ti ti-file-download"></i>Reportes PDF</button>
@@ -360,6 +372,26 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
               <tbody id="ordenes-tbody"></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- ── AGENDA DE CONDUCTORES ──────────────────── -->
+      <div class="page" id="page-agenda">
+        <div class="card" style="padding:14px 16px;margin-bottom:16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <div class="field" style="margin:0;flex:1;min-width:160px"><label>Fecha</label><input type="date" id="ag-fecha"></div>
+            <button class="btn primary" onclick="loadAgenda()"><i class="ti ti-calendar"></i> Ver agenda</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            <span>Viajes asignados por chofer</span>
+            <span style="display:flex;align-items:center;gap:12px;font-size:11px;font-weight:400;text-transform:none;color:var(--text2)">
+              <span><span style="display:inline-block;width:10px;height:10px;background:var(--blue-l);border:1px solid var(--blue);border-radius:2px;margin-right:4px"></span>Viaje</span>
+              <span><span style="display:inline-block;width:10px;height:10px;background:var(--red-l);border:1px solid var(--red);border-radius:2px;margin-right:4px"></span>Conflicto de horario</span>
+            </span>
+          </div>
+          <div class="agenda-wrap" id="agenda-timeline"><div class="empty-state">Selecciona una fecha y presiona "Ver agenda"</div></div>
         </div>
       </div>
 
@@ -910,6 +942,7 @@ const PAGE_META = {
   recibos:      { title:'Todos los recibos',   sub:'Historial completo de servicios' },
   estadisticas: { title:'Estadísticas',        sub:'Análisis por período, vehículo y usuario' },
   reportes:     { title:'Reportes PDF',        sub:'Exportar datos en formato PDF' },
+  agenda:       { title:'Agenda de conductores', sub:'Horarios de viaje asignados a cada chofer' },
 };
 
 function goTo(page) {
@@ -920,7 +953,7 @@ function goTo(page) {
   const meta = PAGE_META[page] || {};
   document.getElementById('page-title').textContent = meta.title || page;
   document.getElementById('page-sub').textContent   = meta.sub   || '';
-  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, estadisticas: loadEstadisticas, reportes: ()=>{}, configuracion: loadConfiguracion };
+  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, agenda: loadAgenda, estadisticas: loadEstadisticas, reportes: ()=>{}, configuracion: loadConfiguracion };
   if (loaders[page]) loaders[page]();
 }
 
@@ -935,6 +968,7 @@ function initDateFilters() {
   const firstDay = today.substring(0,8) + '01';
   ['r-from','e-from','rp-from','ru-from','re-from','o-from'].forEach(id => { const el=document.getElementById(id); if(el) el.value=firstDay });
   ['r-to',  'e-to',  'rp-to',  'ru-to',  're-to', 'o-to' ].forEach(id => { const el=document.getElementById(id); if(el) el.value=today   });
+  const agFecha = document.getElementById('ag-fecha'); if (agFecha) agFecha.value = today;
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────
@@ -1637,6 +1671,87 @@ const ORDEN_ESTADO = {
 let _curOrdenAdminId = null;
 let _ultimaValidacionConflicto = null; // resultado de la última validación de disponibilidad
 
+// ── AGENDA DE CONDUCTORES ─────────────────────────────────
+function toMinutes(hhmm) {
+  if (!/^\d{1,2}:\d{2}$/.test(hhmm || '')) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+async function loadAgenda() {
+  setSyncBadge(true);
+  try {
+    const fecha = document.getElementById('ag-fecha').value;
+    if (!fecha) { setSyncBadge(false); return; }
+
+    const [ordenes, catalogos] = await Promise.all([
+      adminFetch('ordenes?fecha=eq.' + fecha + '&estado=neq.rechazada&order=hinicio.asc'),
+      adminFetch('catalogs?tipo=eq.choferes&order=valor.asc')
+    ]);
+
+    // Agrupar por chofer — incluye a todos los del catálogo aunque no tengan viajes ese día
+    const porChofer = {};
+    catalogos.forEach(c => { porChofer[c.valor] = []; });
+    ordenes.forEach(o => {
+      if (!o.chofer) return;
+      if (!porChofer[o.chofer]) porChofer[o.chofer] = [];
+      porChofer[o.chofer].push(o);
+    });
+
+    renderAgenda(porChofer);
+  } catch(e) { toast('Error al cargar la agenda: ' + e.message, 'err'); }
+  setSyncBadge(false);
+}
+
+function renderAgenda(porChofer) {
+  const START = 6 * 60, END = 22 * 60, RANGE = END - START; // ventana visible: 06:00–22:00
+  const cont = document.getElementById('agenda-timeline');
+  const choferes = Object.keys(porChofer).sort((a, b) => a.localeCompare(b));
+
+  if (!choferes.length) {
+    cont.innerHTML = '<div class="empty-state"><i class="ti ti-steering-wheel"></i>No hay choferes registrados en el catálogo (Configuración → Agregar dato frecuente → Chofer)</div>';
+    return;
+  }
+
+  const horasEje = [];
+  for (let h = 6; h <= 22; h += 2) horasEje.push(String(h).padStart(2, '0'));
+
+  let rowsHtml = '';
+  choferes.forEach(chofer => {
+    const bloques = porChofer[chofer]
+      .map(o => ({ ...o, inicio: toMinutes(o.hinicio), duracion: o.duracion_estimada_min || 120 }))
+      .filter(o => o.inicio !== null)
+      .map(o => ({ ...o, fin: o.inicio + o.duracion }))
+      .sort((a, b) => a.inicio - b.inicio);
+
+    bloques.forEach((b, i) => {
+      b.conflicto = bloques.some((o2, j) => j !== i && b.inicio < o2.fin && b.fin > o2.inicio);
+    });
+
+    const blocksHtml = bloques.map(b => {
+      const left  = Math.max(0, (b.inicio - START) / RANGE * 100);
+      const width = Math.max(2, Math.min(100 - left, (b.fin - b.inicio) / RANGE * 100));
+      const ruta  = (b.desde || '') + (b.hasta ? ' → ' + b.hasta : '');
+      return `<div class="agenda-block${b.conflicto ? ' conflict' : ''}" style="left:${left}%;width:${width}%"
+                title="${escH(b.hinicio)} · ${escH(ruta)}${b.conflicto ? ' · ¡CONFLICTO DE HORARIO!' : ''}"
+                onclick="verOrden('${b.id}')">${escH(b.hinicio)}</div>`;
+    }).join('');
+
+    rowsHtml += `
+      <div class="agenda-row">
+        <div class="agenda-label" title="${escH(chofer)}">${escH(chofer)}</div>
+        <div class="agenda-track">${blocksHtml || ''}</div>
+      </div>`;
+  });
+
+  cont.innerHTML = `
+    <div class="agenda-axis">
+      <div class="agenda-label"></div>
+      <div class="agenda-axis-hours">${horasEje.map(h => `<div>${h}</div>`).join('')}</div>
+    </div>
+    ${rowsHtml}`;
+}
+
 // Valida si el chofer seleccionado ya tiene otro viaje que se superpone
 // en horario, y actualiza el aviso + el texto del botón "Enviar orden".
 async function validarDisponibilidadOrden() {
@@ -1678,6 +1793,7 @@ async function validarDisponibilidadOrden() {
   } catch(e) {
     // si la función RPC aún no existe en la base, no bloqueamos el flujo
     console.error('Error al validar disponibilidad:', e);
+    toast('No se pudo validar disponibilidad: ' + e.message, 'err');
     warnEl.style.display = 'none';
   }
 }
