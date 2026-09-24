@@ -674,6 +674,10 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
         <div class="field"><label>H. Inicio</label><input type="time" id="no-hinicio"></div>
         <div class="field"><label>Total estimado ($)</label><input type="number" id="no-total" placeholder="0" inputmode="numeric"></div>
       </div>
+      <div class="field"><label>Duración estimada del viaje (min)</label><input type="number" id="no-duracion" value="120" min="15" step="15"></div>
+      <div id="no-warning-disponibilidad" style="display:none;align-items:center;gap:8px;padding:10px 12px;background:var(--red-l);border-radius:var(--rsm);font-size:12px;color:var(--red);margin-bottom:10px">
+        <i class="ti ti-alert-triangle"></i> <span id="no-warning-text"></span>
+      </div>
       <div class="field"><label>Detalle / instrucciones</label><textarea id="no-detalle" placeholder="Instrucciones específicas, observaciones..."></textarea></div>
       <div style="background:var(--bgs);border:var(--border);border-radius:var(--rsm);padding:12px;margin-bottom:4px">
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
@@ -834,6 +838,22 @@ async function adminFetch(path, opts = {}) {
   });
   if (!res.ok) { const t = await res.text(); throw new Error(t); }
   const t = await res.text(); return t ? JSON.parse(t) : [];
+}
+
+// Llamada a funciones RPC de Postgres (ej. validación de disponibilidad)
+async function adminRpc(name, params) {
+  const token = SB_SERVICE || adminSession?.access_token || SB_ANON;
+  const res = await fetch(SB_URL + '/rest/v1/rpc/' + name, {
+    method: 'POST',
+    headers: {
+      'apikey':        SB_SERVICE || SB_ANON,
+      'Authorization': 'Bearer ' + token,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(params)
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(t); }
+  return res.json();
 }
 
 // Admin Auth API (requiere service key)
@@ -1615,6 +1635,52 @@ const ORDEN_ESTADO = {
 };
 
 let _curOrdenAdminId = null;
+let _ultimaValidacionConflicto = null; // resultado de la última validación de disponibilidad
+
+// Valida si el chofer seleccionado ya tiene otro viaje que se superpone
+// en horario, y actualiza el aviso + el texto del botón "Enviar orden".
+async function validarDisponibilidadOrden() {
+  const chofer   = document.getElementById('no-chofer').value;
+  const fecha    = document.getElementById('no-fecha').value;
+  const hinicio  = document.getElementById('no-hinicio').value;
+  const duracion = parseInt(document.getElementById('no-duracion').value, 10) || 120;
+
+  const warnEl = document.getElementById('no-warning-disponibilidad');
+  const warnTxt = document.getElementById('no-warning-text');
+  const btn = document.getElementById('no-btn');
+
+  _ultimaValidacionConflicto = null;
+  if (!chofer || !fecha || !hinicio) {
+    warnEl.style.display = 'none';
+    btn.innerHTML = '<i class="ti ti-send"></i> Enviar orden';
+    return;
+  }
+
+  try {
+    const data = await adminRpc('check_disponibilidad_conductor', {
+      p_chofer: chofer,
+      p_orden_id: null,
+      p_fecha: fecha,
+      p_hora_inicio: hinicio,
+      p_duracion_min: duracion
+    });
+    const conflicto = data && data.length > 0 ? data[0] : null;
+    _ultimaValidacionConflicto = conflicto;
+
+    if (conflicto) {
+      warnEl.style.display = 'flex';
+      warnTxt.textContent = `${chofer} ya tiene un viaje a las ${conflicto.hora_inicio_conflicto} que se superpone con este horario`;
+      btn.innerHTML = '<i class="ti ti-alert-triangle"></i> Asignar de todos modos';
+    } else {
+      warnEl.style.display = 'none';
+      btn.innerHTML = '<i class="ti ti-send"></i> Enviar orden';
+    }
+  } catch(e) {
+    // si la función RPC aún no existe en la base, no bloqueamos el flujo
+    console.error('Error al validar disponibilidad:', e);
+    warnEl.style.display = 'none';
+  }
+}
 
 async function loadOrdenes() {
   setSyncBadge(true);
@@ -1696,7 +1762,16 @@ async function openCreateOrden() {
   document.getElementById('no-vehiculo').value = '';
   document.getElementById('no-total').value    = '';
   document.getElementById('no-hinicio').value  = '';
+  document.getElementById('no-duracion').value = 120;
+  document.getElementById('no-warning-disponibilidad').style.display = 'none';
   document.getElementById('no-err').textContent = '';
+  _ultimaValidacionConflicto = null;
+
+  // Validar disponibilidad del chofer cada vez que cambian chofer/fecha/hora/duración
+  ['no-chofer','no-fecha','no-hinicio','no-duracion'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.onchange = validarDisponibilidadOrden;
+  });
 
   // Poblar selector de usuarios
   const selUser = document.getElementById('no-user');
@@ -1744,6 +1819,15 @@ async function createOrden() {
   const err    = document.getElementById('no-err');
   err.textContent = '';
   if (!uid || !fecha || !desde || !hasta) { err.textContent = 'Completa los campos obligatorios (usuario, fecha, desde y hasta)'; return; }
+
+  // Si hay un conflicto de horario detectado, confirmar antes de continuar
+  if (_ultimaValidacionConflicto) {
+    const continuar = confirm(
+      `Este chofer ya tiene un viaje a las ${_ultimaValidacionConflicto.hora_inicio_conflicto} que se superpone con este horario. ¿Asignar de todos modos?`
+    );
+    if (!continuar) return;
+  }
+
   setBtnLoad('no-btn', true, '<i class="ti ti-send"></i> Enviar orden');
   try {
     const body = {
@@ -1758,6 +1842,7 @@ async function createOrden() {
       costo:     document.getElementById('no-costo').value.trim(),
       desde, hasta,
       hinicio:   document.getElementById('no-hinicio').value,
+      duracion_estimada_min: parseInt(document.getElementById('no-duracion').value, 10) || 120,
       total:     Number(document.getElementById('no-total').value || 0) || null,
       detalle:   document.getElementById('no-detalle').value.trim(),
       created_at: new Date().toISOString()
