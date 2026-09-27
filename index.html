@@ -1414,11 +1414,9 @@ async function exportGeneralPDF() {
   if(!jsPDF){toast('jsPDF no disponible','err');return;}
   const receipts=await getFilteredReceipts('rp-from','rp-to','rp-veh');
   if(!receipts.length){toast('Sin datos para exportar');return;}
-  const profiles=await adminFetch('profiles?select=user_id,email');
-  const emailMap={}; profiles.forEach(p=>emailMap[p.user_id]=p.email);
   const total=receipts.reduce((a,r)=>a+Number(r.total||0),0);
-  const doc=new jsPDF({unit:'mm',format:'a4'});
-  const W=210,M=12;
+  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
+  const W=297,M=14;
   doc.setFillColor(14,62,110);doc.rect(0,0,W,22,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(255,255,255);
   doc.text('REPORTE GENERAL — TRANSFERLOG',W/2,13,{align:'center'});
@@ -1434,19 +1432,20 @@ async function exportGeneralPDF() {
   doc.setFontSize(8);doc.setTextColor(15,110,86);doc.text('Monto total',M+63,y+6);
   doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(15,110,86);doc.text(fmtCLP(total),M+63,y+13);
   y+=24;
-  const cols=['#','Fecha','Usuario','Chofer','Vehículo','Ruta','Empresa','Detalle','Total'];
-  const xs=[M,M+10,M+26,M+62,M+92,M+109,M+133,M+152,M+177];
-  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+  const cols=['Fecha','Ruta','Detalle','Solicita','Centro costo','Valor'];
+  const xs=[M,M+22,M+80,M+165,M+205,M+245];
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(80,80,80);
   cols.forEach((h,i)=>doc.text(h,xs[i],y));
   y+=2;doc.setDrawColor(14,62,110);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);y+=4;
-  doc.setFont('helvetica','normal');doc.setFontSize(7);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);
   receipts.forEach((r,idx)=>{
     if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-3,W-2*M,7,'F');}
     doc.setTextColor(30,30,30);
-    const detTxt=(r.detalle||'').replace(/\n/g,' ').substring(0,16);
-    [String(r.num||''),fmtDate(r.fecha),(emailMap[r.user_id]||'').substring(0,16),(r.chofer||'').substring(0,14),(r.vehiculo||''),(r.desde||'').substring(0,9)+(r.hasta?'→'+(r.hasta||'').substring(0,9):''),
-     (r.empresa||'').substring(0,14),detTxt,fmtCLP(r.total)].forEach((v,i)=>doc.text(v,xs[i],y+1));
-    y+=7;if(y>272){doc.addPage();y=20;}
+    const ruta=(r.desde||'').substring(0,26)+(r.hasta?' → '+(r.hasta||'').substring(0,26):'');
+    const detTxt=(r.detalle||'').replace(/\n/g,' ').substring(0,48);
+    [fmtDate(r.fecha), ruta, detTxt, (r.solicita||'').substring(0,20), (r.costo||'').substring(0,18), fmtCLP(r.total)]
+      .forEach((v,i)=>doc.text(v,xs[i],y+1));
+    y+=7;if(y>185){doc.addPage();y=20;}
   });
   doc.setDrawColor(200,200,200);doc.line(M,y,W-M,y);y+=5;
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
@@ -1466,8 +1465,8 @@ async function exportUserPDF() {
   const [receipts,profile]=await Promise.all([adminFetch(q),adminFetch('profiles?user_id=eq.'+uid)]);
   const email=profile[0]?.email||'Usuario';
   const total=receipts.reduce((a,r)=>a+Number(r.total||0),0);
-  const doc=new jsPDF({unit:'mm',format:'a4'});
-  const W=210,M=14;
+  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
+  const W=297,M=14;
   doc.setFillColor(14,62,110);doc.rect(0,0,W,26,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,255,255);
   doc.text('REPORTE INDIVIDUAL — TRANSFERLOG',W/2,12,{align:'center'});
@@ -1482,19 +1481,20 @@ async function exportUserPDF() {
   doc.setFontSize(8);doc.setTextColor(15,110,86);doc.text('Monto total',M+69,y+6);
   doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(15,110,86);doc.text(fmtCLP(total),M+69,y+13);
   y+=24;
-  const cols=['#','Fecha','Chofer','Vehículo','Desde','Hasta','Empresa','Detalle','Total'];
-  const xs=[M,M+10,M+26,M+60,M+85,M+108,M+130,M+155,M+178];
-  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+  const cols=['Fecha','Ruta','Detalle','Solicita','Centro costo','Valor'];
+  const xs=[M,M+22,M+80,M+165,M+205,M+245];
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(80,80,80);
   cols.forEach((h,i)=>doc.text(h,xs[i],y));
   y+=2;doc.setDrawColor(14,62,110);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);y+=4;
-  doc.setFont('helvetica','normal');doc.setFontSize(7);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);
   receipts.forEach((r,idx)=>{
     if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-3,W-2*M,7,'F');}
     doc.setTextColor(30,30,30);
-    const det=(r.detalle||'').replace(/\n/g,' ').substring(0,18);
-    [String(r.num||''),fmtDate(r.fecha),(r.chofer||'').substring(0,14),(r.vehiculo||''),(r.desde||'').substring(0,12),(r.hasta||'').substring(0,12),(r.empresa||'').substring(0,14),det,fmtCLP(r.total)]
+    const ruta=(r.desde||'').substring(0,26)+(r.hasta?' → '+(r.hasta||'').substring(0,26):'');
+    const det=(r.detalle||'').replace(/\n/g,' ').substring(0,48);
+    [fmtDate(r.fecha), ruta, det, (r.solicita||'').substring(0,20), (r.costo||'').substring(0,18), fmtCLP(r.total)]
       .forEach((v,i)=>doc.text(v,xs[i],y+1));
-    y+=7;if(y>272){doc.addPage();y=20;}
+    y+=7;if(y>185){doc.addPage();y=20;}
   });
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
   y+=4;doc.text('TOTAL: '+fmtCLP(total),W-M,y,{align:'right'});
@@ -1517,8 +1517,8 @@ async function exportGroupPDF() {
     if(!grouped[key]) grouped[key]={items:[],total:0};
     grouped[key].items.push(r); grouped[key].total+=Number(r.total||0);
   });
-  const doc=new jsPDF({unit:'mm',format:'a4'});
-  const W=210,M=14;
+  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
+  const W=297,M=14;
   const groupLabels={empresa:'Empresa',chofer:'Chofer',vehiculo:'Vehículo'};
   doc.setFillColor(14,62,110);doc.rect(0,0,W,22,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,255,255);
@@ -1527,21 +1527,29 @@ async function exportGroupPDF() {
   doc.text(`Período: ${from?fmtDate(from):'inicio'} — ${to?fmtDate(to):'hoy'} · TransferLog`,W/2,18.5,{align:'center'});
   let y=30;
   Object.entries(grouped).sort((a,b)=>b[1].total-a[1].total).forEach(([key,grp])=>{
-    if(y>250){doc.addPage();y=20;}
+    if(y>170){doc.addPage();y=20;}
     doc.setFillColor(230,241,251);doc.roundedRect(M,y,W-2*M,12,2,2,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
     doc.text(key,M+4,y+8);
     doc.setFont('helvetica','normal');doc.setFontSize(9);
     doc.text(grp.items.length+' recibos  ·  '+fmtCLP(grp.total),W-M-4,y+8,{align:'right'});
     y+=16;
+    // Encabezados de columna para este grupo
+    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+    doc.text('Fecha',M,y);doc.text('Ruta',M+22,y);doc.text('Detalle',M+80,y);
+    doc.text('Solicita',M+165,y);doc.text('Centro costo',M+205,y);doc.text('Valor',M+245,y);
+    y+=4;
     grp.items.forEach((r,idx)=>{
-      if(y>272){doc.addPage();y=20;}
+      if(y>185){doc.addPage();y=20;}
       if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-2,W-2*M,6.5,'F');}
-      doc.setTextColor(30,30,30);doc.setFontSize(7);
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(30,30,30);
+      const ruta=(r.desde||'').substring(0,26)+(r.hasta?' → '+(r.hasta||'').substring(0,26):'');
       doc.text(fmtDate(r.fecha),M,y+2);
-      doc.text((r.desde||'')+(r.hasta?' → '+r.hasta:''),M+22,y+2);
-      doc.text((r.detalle||'').replace(/\n/g,' ').substring(0,35),M+80,y+2);
-      doc.setFont('helvetica','bold');doc.text(fmtCLP(r.total),W-M,y+2,{align:'right'});
+      doc.text(ruta,M+22,y+2);
+      doc.text((r.detalle||'').replace(/\n/g,' ').substring(0,48),M+80,y+2);
+      doc.text((r.solicita||'').substring(0,20),M+165,y+2);
+      doc.text((r.costo||'').substring(0,18),M+205,y+2);
+      doc.setFont('helvetica','bold');doc.text(fmtCLP(r.total),M+245,y+2);
       doc.setFont('helvetica','normal');
       y+=6.5;
     });
