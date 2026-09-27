@@ -821,6 +821,17 @@ async function doAdminLogin() {
       }
     });
     const profiles = await profRes.json();
+
+    // Si la petición en sí falló (ej. Service Role Key inválida o mal copiada),
+    // Supabase responde con un objeto de error, no con un array — hay que
+    // distinguirlo de "no existe el perfil" para no mostrar un mensaje engañoso.
+    if (!profRes.ok || !Array.isArray(profiles)) {
+      err.textContent = 'Error de conexión a Supabase (revisa la Service Role Key): ' + (profiles.message || profiles.msg || profRes.status);
+      adminSession = null;
+      btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
+      return;
+    }
+
     const rol = profiles[0]?.rol;
 
     if (rol !== 'admin' && rol !== 'supervisor') {
@@ -1117,8 +1128,14 @@ async function createUser() {
   try {
     const userData = await adminAuthFetch('users', { email, password: pass, email_confirm: true });
     const uid = userData.id;
-    await adminFetch('profiles', {
+    // El trigger handle_new_user() ya insertó una fila básica en profiles
+    // (con rol 'operador' por defecto) al crear el usuario en auth.users.
+    // Por eso aquí hacemos upsert (on_conflict=user_id) en vez de un insert
+    // simple, para actualizar esa fila con el nombre y rol reales elegidos
+    // en el formulario, en lugar de chocar con ella.
+    await adminFetch('profiles?on_conflict=user_id', {
       method: 'POST',
+      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
       body: JSON.stringify({ user_id: uid, email, nombre, rol, created_at: new Date().toISOString() })
     });
     // Si es conductor, agregarlo también al catálogo de choferes
