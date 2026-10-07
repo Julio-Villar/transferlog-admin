@@ -190,17 +190,6 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 .flex-end{display:flex;justify-content:flex-end;gap:8px}
 .mt8{margin-top:8px}
 .pill-row{display:flex;gap:6px;flex-wrap:wrap}
-
-/* Agenda de conductores */
-.agenda-axis{display:flex;margin-bottom:6px}
-.agenda-axis .agenda-label{width:120px;flex-shrink:0}
-.agenda-axis-hours{flex:1;display:flex;justify-content:space-between;font-size:11px;color:var(--text2)}
-.agenda-row{display:flex;align-items:center;gap:0;margin-bottom:10px}
-.agenda-label{width:120px;flex-shrink:0;font-size:13px;font-weight:500;padding-right:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.agenda-track{position:relative;flex:1;height:34px;background:var(--bgs);border-radius:6px;min-width:600px}
-.agenda-block{position:absolute;top:4px;bottom:4px;background:var(--blue-l);border:1px solid var(--blue);color:var(--blue-d);border-radius:4px;font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;cursor:pointer;padding:0 4px}
-.agenda-block.conflict{background:var(--red-l);border-color:var(--red);color:var(--red);font-weight:700}
-.agenda-wrap{overflow-x:auto}
 </style>
 </head>
 <body>
@@ -237,7 +226,6 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <button class="snav-btn" onclick="goTo('rutas')" id="nav-rutas"><i class="ti ti-map-pin"></i>Rutas globales</button>
       <button class="snav-btn" onclick="goTo('recibos')" id="nav-recibos"><i class="ti ti-file-text"></i>Todos los recibos</button>
       <button class="snav-btn" onclick="goTo('ordenes')" id="nav-ordenes"><i class="ti ti-send"></i>Órdenes de viaje</button>
-      <button class="snav-btn" onclick="goTo('agenda')" id="nav-agenda"><i class="ti ti-calendar-time"></i>Agenda conductores</button>
       <div class="snav-section">Estadísticas</div>
       <button class="snav-btn" onclick="goTo('estadisticas')" id="nav-estadisticas"><i class="ti ti-chart-bar"></i>Estadísticas</button>
       <button class="snav-btn" onclick="goTo('reportes')" id="nav-reportes"><i class="ti ti-file-download"></i>Reportes PDF</button>
@@ -372,26 +360,6 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
               <tbody id="ordenes-tbody"></tbody>
             </table>
           </div>
-        </div>
-      </div>
-
-      <!-- ── AGENDA DE CONDUCTORES ──────────────────── -->
-      <div class="page" id="page-agenda">
-        <div class="card" style="padding:14px 16px;margin-bottom:16px">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
-            <div class="field" style="margin:0;flex:1;min-width:160px"><label>Fecha</label><input type="date" id="ag-fecha"></div>
-            <button class="btn primary" onclick="loadAgenda()"><i class="ti ti-calendar"></i> Ver agenda</button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-title">
-            <span>Viajes asignados por chofer</span>
-            <span style="display:flex;align-items:center;gap:12px;font-size:11px;font-weight:400;text-transform:none;color:var(--text2)">
-              <span><span style="display:inline-block;width:10px;height:10px;background:var(--blue-l);border:1px solid var(--blue);border-radius:2px;margin-right:4px"></span>Viaje</span>
-              <span><span style="display:inline-block;width:10px;height:10px;background:var(--red-l);border:1px solid var(--red);border-radius:2px;margin-right:4px"></span>Conflicto de horario</span>
-            </span>
-          </div>
-          <div class="agenda-wrap" id="agenda-timeline"><div class="empty-state">Selecciona una fecha y presiona "Ver agenda"</div></div>
         </div>
       </div>
 
@@ -706,10 +674,6 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
         <div class="field"><label>H. Inicio</label><input type="time" id="no-hinicio"></div>
         <div class="field"><label>Total estimado ($)</label><input type="number" id="no-total" placeholder="0" inputmode="numeric"></div>
       </div>
-      <div class="field"><label>Duración estimada del viaje (min)</label><input type="number" id="no-duracion" value="120" min="15" step="15"></div>
-      <div id="no-warning-disponibilidad" style="display:none;align-items:center;gap:8px;padding:10px 12px;background:var(--red-l);border-radius:var(--rsm);font-size:12px;color:var(--red);margin-bottom:10px">
-        <i class="ti ti-alert-triangle"></i> <span id="no-warning-text"></span>
-      </div>
       <div class="field"><label>Detalle / instrucciones</label><textarea id="no-detalle" placeholder="Instrucciones específicas, observaciones..."></textarea></div>
       <div style="background:var(--bgs);border:var(--border);border-radius:var(--rsm);padding:12px;margin-bottom:4px">
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
@@ -821,17 +785,6 @@ async function doAdminLogin() {
       }
     });
     const profiles = await profRes.json();
-
-    // Si la petición en sí falló (ej. Service Role Key inválida o mal copiada),
-    // Supabase responde con un objeto de error, no con un array — hay que
-    // distinguirlo de "no existe el perfil" para no mostrar un mensaje engañoso.
-    if (!profRes.ok || !Array.isArray(profiles)) {
-      err.textContent = 'Error de conexión a Supabase (revisa la Service Role Key): ' + (profiles.message || profiles.msg || profRes.status);
-      adminSession = null;
-      btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
-      return;
-    }
-
     const rol = profiles[0]?.rol;
 
     if (rol !== 'admin' && rol !== 'supervisor') {
@@ -881,22 +834,6 @@ async function adminFetch(path, opts = {}) {
   });
   if (!res.ok) { const t = await res.text(); throw new Error(t); }
   const t = await res.text(); return t ? JSON.parse(t) : [];
-}
-
-// Llamada a funciones RPC de Postgres (ej. validación de disponibilidad)
-async function adminRpc(name, params) {
-  const token = SB_SERVICE || adminSession?.access_token || SB_ANON;
-  const res = await fetch(SB_URL + '/rest/v1/rpc/' + name, {
-    method: 'POST',
-    headers: {
-      'apikey':        SB_SERVICE || SB_ANON,
-      'Authorization': 'Bearer ' + token,
-      'Content-Type':  'application/json'
-    },
-    body: JSON.stringify(params)
-  });
-  if (!res.ok) { const t = await res.text(); throw new Error(t); }
-  return res.json();
 }
 
 // Admin Auth API (requiere service key)
@@ -953,7 +890,6 @@ const PAGE_META = {
   recibos:      { title:'Todos los recibos',   sub:'Historial completo de servicios' },
   estadisticas: { title:'Estadísticas',        sub:'Análisis por período, vehículo y usuario' },
   reportes:     { title:'Reportes PDF',        sub:'Exportar datos en formato PDF' },
-  agenda:       { title:'Agenda de conductores', sub:'Horarios de viaje asignados a cada chofer' },
 };
 
 function goTo(page) {
@@ -964,7 +900,7 @@ function goTo(page) {
   const meta = PAGE_META[page] || {};
   document.getElementById('page-title').textContent = meta.title || page;
   document.getElementById('page-sub').textContent   = meta.sub   || '';
-  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, agenda: loadAgenda, estadisticas: loadEstadisticas, reportes: ()=>{}, configuracion: loadConfiguracion };
+  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, estadisticas: loadEstadisticas, reportes: ()=>{}, configuracion: loadConfiguracion };
   if (loaders[page]) loaders[page]();
 }
 
@@ -979,7 +915,6 @@ function initDateFilters() {
   const firstDay = today.substring(0,8) + '01';
   ['r-from','e-from','rp-from','ru-from','re-from','o-from'].forEach(id => { const el=document.getElementById(id); if(el) el.value=firstDay });
   ['r-to',  'e-to',  'rp-to',  'ru-to',  're-to', 'o-to' ].forEach(id => { const el=document.getElementById(id); if(el) el.value=today   });
-  const agFecha = document.getElementById('ag-fecha'); if (agFecha) agFecha.value = today;
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────
@@ -1128,14 +1063,8 @@ async function createUser() {
   try {
     const userData = await adminAuthFetch('users', { email, password: pass, email_confirm: true });
     const uid = userData.id;
-    // El trigger handle_new_user() ya insertó una fila básica en profiles
-    // (con rol 'operador' por defecto) al crear el usuario en auth.users.
-    // Por eso aquí hacemos upsert (on_conflict=user_id) en vez de un insert
-    // simple, para actualizar esa fila con el nombre y rol reales elegidos
-    // en el formulario, en lugar de chocar con ella.
-    await adminFetch('profiles?on_conflict=user_id', {
+    await adminFetch('profiles', {
       method: 'POST',
-      headers: { 'Prefer': 'resolution=merge-duplicates,return=representation' },
       body: JSON.stringify({ user_id: uid, email, nombre, rol, created_at: new Date().toISOString() })
     });
     // Si es conductor, agregarlo también al catálogo de choferes
@@ -1414,9 +1343,13 @@ async function exportGeneralPDF() {
   if(!jsPDF){toast('jsPDF no disponible','err');return;}
   const receipts=await getFilteredReceipts('rp-from','rp-to','rp-veh');
   if(!receipts.length){toast('Sin datos para exportar');return;}
+  const profiles=await adminFetch('profiles?select=user_id,email');
+  const emailMap={}; profiles.forEach(p=>emailMap[p.user_id]=p.email);
   const total=receipts.reduce((a,r)=>a+Number(r.total||0),0);
+  // A4 horizontal para más espacio
   const doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
-  const W=297,M=14;
+  const W=297,M=12;
+  // Encabezado
   doc.setFillColor(14,62,110);doc.rect(0,0,W,22,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(255,255,255);
   doc.text('REPORTE GENERAL — TRANSFERLOG',W/2,13,{align:'center'});
@@ -1425,31 +1358,60 @@ async function exportGeneralPDF() {
   doc.text(`Período: ${from?fmtDate(from):'inicio'} — ${to?fmtDate(to):'hoy'} · Generado el ${new Date().toLocaleDateString('es-CL')}`,W/2,18.5,{align:'center'});
   let y=30;
   // Resumen
-  doc.setFillColor(230,241,251);doc.roundedRect(M,y,55,16,2,2,'F');
+  doc.setFillColor(230,241,251);doc.roundedRect(M,y,60,16,2,2,'F');
   doc.setFontSize(8);doc.setTextColor(24,95,165);doc.text('Total recibos',M+3,y+6);
   doc.setFontSize(13);doc.setFont('helvetica','bold');doc.text(String(receipts.length),M+3,y+13);
-  doc.setFillColor(225,245,238);doc.roundedRect(M+60,y,80,16,2,2,'F');
-  doc.setFontSize(8);doc.setTextColor(15,110,86);doc.text('Monto total',M+63,y+6);
-  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(15,110,86);doc.text(fmtCLP(total),M+63,y+13);
+  doc.setFillColor(225,245,238);doc.roundedRect(M+65,y,80,16,2,2,'F');
+  doc.setFontSize(8);doc.setTextColor(15,110,86);doc.text('Monto total',M+68,y+6);
+  doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(15,110,86);doc.text(fmtCLP(total),M+68,y+13);
   y+=24;
-  const cols=['Fecha','Ruta','Detalle','Solicita','Centro costo','Valor'];
-  const xs=[M,M+22,M+80,M+165,M+205,M+245];
-  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(80,80,80);
+
+  // Columnas: # | Fecha | Chofer | Vehículo | Desde | Hasta | Empresa | Detalle | Total
+  // Landscape 297mm - márgenes 24mm = 273mm útiles
+  //  #    Fecha  Chofer  Veh   Desde        Hasta        Empresa   Detalle    Total
+  //  8    18     32      16    40           40           30        50         25  = 259 + gaps
+  const cols = ['#','Fecha','Chofer','Vehículo','Desde','Hasta','Empresa','Detalle','Total'];
+  const xs   = [M, M+9, M+28, M+62, M+82, M+130, M+178, M+212, M+268];
+
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(60,60,60);
+  // Fondo cabecera
+  doc.setFillColor(225,232,242);doc.rect(M,y-4,W-2*M,8,'F');
   cols.forEach((h,i)=>doc.text(h,xs[i],y));
   y+=2;doc.setDrawColor(14,62,110);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);y+=4;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+
+  doc.setFont('helvetica','normal');doc.setFontSize(7);
   receipts.forEach((r,idx)=>{
     if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-3,W-2*M,7,'F');}
     doc.setTextColor(30,30,30);
-    const ruta=(r.desde||'').substring(0,26)+(r.hasta?' → '+(r.hasta||'').substring(0,26):'');
-    const detTxt=(r.detalle||'').replace(/\n/g,' ').substring(0,48);
-    [fmtDate(r.fecha), ruta, detTxt, (r.solicita||'').substring(0,20), (r.costo||'').substring(0,18), fmtCLP(r.total)]
-      .forEach((v,i)=>doc.text(v,xs[i],y+1));
-    y+=7;if(y>185){doc.addPage();y=20;}
+
+    const desde  = (r.desde||'').substring(0,22);
+    const hasta  = (r.hasta||'').substring(0,22);
+    const chofer = (r.chofer||'').substring(0,16);
+    const emp    = (r.empresa||'').substring(0,16);
+    const det    = (r.detalle||'').replace(/\n/g,' ').substring(0,24);
+
+    [
+      String(r.num||''),
+      fmtDate(r.fecha),
+      chofer,
+      r.vehiculo||'',
+      desde,
+      hasta,
+      emp,
+      det,
+      fmtCLP(r.total)
+    ].forEach((v,i)=>doc.text(v,xs[i],y+1));
+
+    y+=7;
+    if(y>190){doc.addPage();y=20;}
   });
-  doc.setDrawColor(200,200,200);doc.line(M,y,W-M,y);y+=5;
+
+  doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(M,y,W-M,y);y+=5;
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
   doc.text('TOTAL: '+fmtCLP(total),W-M,y,{align:'right'});
+  y+=8;
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(160,160,160);
+  doc.text('Generado el '+new Date().toLocaleDateString('es-CL')+' · TransferLog',W/2,y,{align:'center'});
   doc.save('reporte-general-'+new Date().toISOString().split('T')[0]+'.pdf');
   toast('PDF generado ✓','ok');
 }
@@ -1465,8 +1427,8 @@ async function exportUserPDF() {
   const [receipts,profile]=await Promise.all([adminFetch(q),adminFetch('profiles?user_id=eq.'+uid)]);
   const email=profile[0]?.email||'Usuario';
   const total=receipts.reduce((a,r)=>a+Number(r.total||0),0);
-  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
-  const W=297,M=14;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=14;
   doc.setFillColor(14,62,110);doc.rect(0,0,W,26,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,255,255);
   doc.text('REPORTE INDIVIDUAL — TRANSFERLOG',W/2,12,{align:'center'});
@@ -1481,20 +1443,19 @@ async function exportUserPDF() {
   doc.setFontSize(8);doc.setTextColor(15,110,86);doc.text('Monto total',M+69,y+6);
   doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(15,110,86);doc.text(fmtCLP(total),M+69,y+13);
   y+=24;
-  const cols=['Fecha','Ruta','Detalle','Solicita','Centro costo','Valor'];
-  const xs=[M,M+22,M+80,M+165,M+205,M+245];
-  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(80,80,80);
+  const cols=['#','Fecha','Chofer','Vehículo','Desde','Hasta','Empresa','Detalle','Total'];
+  const xs=[M,M+10,M+26,M+60,M+85,M+108,M+130,M+155,M+178];
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
   cols.forEach((h,i)=>doc.text(h,xs[i],y));
   y+=2;doc.setDrawColor(14,62,110);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);y+=4;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+  doc.setFont('helvetica','normal');doc.setFontSize(7);
   receipts.forEach((r,idx)=>{
     if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-3,W-2*M,7,'F');}
     doc.setTextColor(30,30,30);
-    const ruta=(r.desde||'').substring(0,26)+(r.hasta?' → '+(r.hasta||'').substring(0,26):'');
-    const det=(r.detalle||'').replace(/\n/g,' ').substring(0,48);
-    [fmtDate(r.fecha), ruta, det, (r.solicita||'').substring(0,20), (r.costo||'').substring(0,18), fmtCLP(r.total)]
+    const det=(r.detalle||'').replace(/\n/g,' ').substring(0,18);
+    [String(r.num||''),fmtDate(r.fecha),(r.chofer||'').substring(0,14),(r.vehiculo||''),(r.desde||'').substring(0,12),(r.hasta||'').substring(0,12),(r.empresa||'').substring(0,14),det,fmtCLP(r.total)]
       .forEach((v,i)=>doc.text(v,xs[i],y+1));
-    y+=7;if(y>185){doc.addPage();y=20;}
+    y+=7;if(y>272){doc.addPage();y=20;}
   });
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
   y+=4;doc.text('TOTAL: '+fmtCLP(total),W-M,y,{align:'right'});
@@ -1517,8 +1478,8 @@ async function exportGroupPDF() {
     if(!grouped[key]) grouped[key]={items:[],total:0};
     grouped[key].items.push(r); grouped[key].total+=Number(r.total||0);
   });
-  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
-  const W=297,M=14;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=14;
   const groupLabels={empresa:'Empresa',chofer:'Chofer',vehiculo:'Vehículo'};
   doc.setFillColor(14,62,110);doc.rect(0,0,W,22,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,255,255);
@@ -1527,29 +1488,21 @@ async function exportGroupPDF() {
   doc.text(`Período: ${from?fmtDate(from):'inicio'} — ${to?fmtDate(to):'hoy'} · TransferLog`,W/2,18.5,{align:'center'});
   let y=30;
   Object.entries(grouped).sort((a,b)=>b[1].total-a[1].total).forEach(([key,grp])=>{
-    if(y>170){doc.addPage();y=20;}
+    if(y>250){doc.addPage();y=20;}
     doc.setFillColor(230,241,251);doc.roundedRect(M,y,W-2*M,12,2,2,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(14,62,110);
     doc.text(key,M+4,y+8);
     doc.setFont('helvetica','normal');doc.setFontSize(9);
     doc.text(grp.items.length+' recibos  ·  '+fmtCLP(grp.total),W-M-4,y+8,{align:'right'});
     y+=16;
-    // Encabezados de columna para este grupo
-    doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
-    doc.text('Fecha',M,y);doc.text('Ruta',M+22,y);doc.text('Detalle',M+80,y);
-    doc.text('Solicita',M+165,y);doc.text('Centro costo',M+205,y);doc.text('Valor',M+245,y);
-    y+=4;
     grp.items.forEach((r,idx)=>{
-      if(y>185){doc.addPage();y=20;}
+      if(y>272){doc.addPage();y=20;}
       if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-2,W-2*M,6.5,'F');}
-      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(30,30,30);
-      const ruta=(r.desde||'').substring(0,26)+(r.hasta?' → '+(r.hasta||'').substring(0,26):'');
+      doc.setTextColor(30,30,30);doc.setFontSize(7);
       doc.text(fmtDate(r.fecha),M,y+2);
-      doc.text(ruta,M+22,y+2);
-      doc.text((r.detalle||'').replace(/\n/g,' ').substring(0,48),M+80,y+2);
-      doc.text((r.solicita||'').substring(0,20),M+165,y+2);
-      doc.text((r.costo||'').substring(0,18),M+205,y+2);
-      doc.setFont('helvetica','bold');doc.text(fmtCLP(r.total),M+245,y+2);
+      doc.text((r.desde||'')+(r.hasta?' → '+r.hasta:''),M+22,y+2);
+      doc.text((r.detalle||'').replace(/\n/g,' ').substring(0,35),M+80,y+2);
+      doc.setFont('helvetica','bold');doc.text(fmtCLP(r.total),W-M,y+2,{align:'right'});
       doc.setFont('helvetica','normal');
       y+=6.5;
     });
@@ -1694,134 +1647,6 @@ const ORDEN_ESTADO = {
 };
 
 let _curOrdenAdminId = null;
-let _ultimaValidacionConflicto = null; // resultado de la última validación de disponibilidad
-
-// ── AGENDA DE CONDUCTORES ─────────────────────────────────
-function toMinutes(hhmm) {
-  if (!/^\d{1,2}:\d{2}$/.test(hhmm || '')) return null;
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-}
-
-async function loadAgenda() {
-  setSyncBadge(true);
-  try {
-    const fecha = document.getElementById('ag-fecha').value;
-    if (!fecha) { setSyncBadge(false); return; }
-
-    const [ordenes, catalogos] = await Promise.all([
-      adminFetch('ordenes?fecha=eq.' + fecha + '&estado=neq.rechazada&order=hinicio.asc'),
-      adminFetch('catalogs?tipo=eq.choferes&order=valor.asc')
-    ]);
-
-    // Agrupar por chofer — incluye a todos los del catálogo aunque no tengan viajes ese día
-    const porChofer = {};
-    catalogos.forEach(c => { porChofer[c.valor] = []; });
-    ordenes.forEach(o => {
-      if (!o.chofer) return;
-      if (!porChofer[o.chofer]) porChofer[o.chofer] = [];
-      porChofer[o.chofer].push(o);
-    });
-
-    renderAgenda(porChofer);
-  } catch(e) { toast('Error al cargar la agenda: ' + e.message, 'err'); }
-  setSyncBadge(false);
-}
-
-function renderAgenda(porChofer) {
-  const START = 6 * 60, END = 22 * 60, RANGE = END - START; // ventana visible: 06:00–22:00
-  const cont = document.getElementById('agenda-timeline');
-  const choferes = Object.keys(porChofer).sort((a, b) => a.localeCompare(b));
-
-  if (!choferes.length) {
-    cont.innerHTML = '<div class="empty-state"><i class="ti ti-steering-wheel"></i>No hay choferes registrados en el catálogo (Configuración → Agregar dato frecuente → Chofer)</div>';
-    return;
-  }
-
-  const horasEje = [];
-  for (let h = 6; h <= 22; h += 2) horasEje.push(String(h).padStart(2, '0'));
-
-  let rowsHtml = '';
-  choferes.forEach(chofer => {
-    const bloques = porChofer[chofer]
-      .map(o => ({ ...o, inicio: toMinutes(o.hinicio), duracion: o.duracion_estimada_min || 120 }))
-      .filter(o => o.inicio !== null)
-      .map(o => ({ ...o, fin: o.inicio + o.duracion }))
-      .sort((a, b) => a.inicio - b.inicio);
-
-    bloques.forEach((b, i) => {
-      b.conflicto = bloques.some((o2, j) => j !== i && b.inicio < o2.fin && b.fin > o2.inicio);
-    });
-
-    const blocksHtml = bloques.map(b => {
-      const left  = Math.max(0, (b.inicio - START) / RANGE * 100);
-      const width = Math.max(2, Math.min(100 - left, (b.fin - b.inicio) / RANGE * 100));
-      const ruta  = (b.desde || '') + (b.hasta ? ' → ' + b.hasta : '');
-      return `<div class="agenda-block${b.conflicto ? ' conflict' : ''}" style="left:${left}%;width:${width}%"
-                title="${escH(b.hinicio)} · ${escH(ruta)}${b.conflicto ? ' · ¡CONFLICTO DE HORARIO!' : ''}"
-                onclick="verOrden('${b.id}')">${escH(b.hinicio)}</div>`;
-    }).join('');
-
-    rowsHtml += `
-      <div class="agenda-row">
-        <div class="agenda-label" title="${escH(chofer)}">${escH(chofer)}</div>
-        <div class="agenda-track">${blocksHtml || ''}</div>
-      </div>`;
-  });
-
-  cont.innerHTML = `
-    <div class="agenda-axis">
-      <div class="agenda-label"></div>
-      <div class="agenda-axis-hours">${horasEje.map(h => `<div>${h}</div>`).join('')}</div>
-    </div>
-    ${rowsHtml}`;
-}
-
-// Valida si el chofer seleccionado ya tiene otro viaje que se superpone
-// en horario, y actualiza el aviso + el texto del botón "Enviar orden".
-async function validarDisponibilidadOrden() {
-  const chofer   = document.getElementById('no-chofer').value;
-  const fecha    = document.getElementById('no-fecha').value;
-  const hinicio  = document.getElementById('no-hinicio').value;
-  const duracion = parseInt(document.getElementById('no-duracion').value, 10) || 120;
-
-  const warnEl = document.getElementById('no-warning-disponibilidad');
-  const warnTxt = document.getElementById('no-warning-text');
-  const btn = document.getElementById('no-btn');
-
-  _ultimaValidacionConflicto = null;
-  if (!chofer || !fecha || !hinicio) {
-    warnEl.style.display = 'none';
-    btn.innerHTML = '<i class="ti ti-send"></i> Enviar orden';
-    return;
-  }
-
-  try {
-    const data = await adminRpc('check_disponibilidad_conductor', {
-      p_chofer: chofer,
-      p_orden_id: null,
-      p_fecha: fecha,
-      p_hora_inicio: hinicio,
-      p_duracion_min: duracion
-    });
-    const conflicto = data && data.length > 0 ? data[0] : null;
-    _ultimaValidacionConflicto = conflicto;
-
-    if (conflicto) {
-      warnEl.style.display = 'flex';
-      warnTxt.textContent = `${chofer} ya tiene un viaje a las ${conflicto.hora_inicio_conflicto} que se superpone con este horario`;
-      btn.innerHTML = '<i class="ti ti-alert-triangle"></i> Asignar de todos modos';
-    } else {
-      warnEl.style.display = 'none';
-      btn.innerHTML = '<i class="ti ti-send"></i> Enviar orden';
-    }
-  } catch(e) {
-    // si la función RPC aún no existe en la base, no bloqueamos el flujo
-    console.error('Error al validar disponibilidad:', e);
-    toast('No se pudo validar disponibilidad: ' + e.message, 'err');
-    warnEl.style.display = 'none';
-  }
-}
 
 async function loadOrdenes() {
   setSyncBadge(true);
@@ -1903,16 +1728,7 @@ async function openCreateOrden() {
   document.getElementById('no-vehiculo').value = '';
   document.getElementById('no-total').value    = '';
   document.getElementById('no-hinicio').value  = '';
-  document.getElementById('no-duracion').value = 120;
-  document.getElementById('no-warning-disponibilidad').style.display = 'none';
   document.getElementById('no-err').textContent = '';
-  _ultimaValidacionConflicto = null;
-
-  // Validar disponibilidad del chofer cada vez que cambian chofer/fecha/hora/duración
-  ['no-chofer','no-fecha','no-hinicio','no-duracion'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.onchange = validarDisponibilidadOrden;
-  });
 
   // Poblar selector de usuarios
   const selUser = document.getElementById('no-user');
@@ -1960,15 +1776,6 @@ async function createOrden() {
   const err    = document.getElementById('no-err');
   err.textContent = '';
   if (!uid || !fecha || !desde || !hasta) { err.textContent = 'Completa los campos obligatorios (usuario, fecha, desde y hasta)'; return; }
-
-  // Si hay un conflicto de horario detectado, confirmar antes de continuar
-  if (_ultimaValidacionConflicto) {
-    const continuar = confirm(
-      `Este chofer ya tiene un viaje a las ${_ultimaValidacionConflicto.hora_inicio_conflicto} que se superpone con este horario. ¿Asignar de todos modos?`
-    );
-    if (!continuar) return;
-  }
-
   setBtnLoad('no-btn', true, '<i class="ti ti-send"></i> Enviar orden');
   try {
     const body = {
@@ -1983,7 +1790,6 @@ async function createOrden() {
       costo:     document.getElementById('no-costo').value.trim(),
       desde, hasta,
       hinicio:   document.getElementById('no-hinicio').value,
-      duracion_estimada_min: parseInt(document.getElementById('no-duracion').value, 10) || 120,
       total:     Number(document.getElementById('no-total').value || 0) || null,
       detalle:   document.getElementById('no-detalle').value.trim(),
       created_at: new Date().toISOString()
