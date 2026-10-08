@@ -1366,15 +1366,12 @@ async function exportGeneralPDF() {
   doc.setFontSize(13);doc.setFont('helvetica','bold');doc.setTextColor(15,110,86);doc.text(fmtCLP(total),M+68,y+13);
   y+=24;
 
-  // Columnas: # | Fecha | Chofer | Vehículo | Desde | Hasta | Empresa | Detalle | Total
-  // Landscape 297mm - márgenes 24mm = 273mm útiles
-  //  #    Fecha  Chofer  Veh   Desde        Hasta        Empresa   Detalle    Total
-  //  8    18     32      16    40           40           30        50         25  = 259 + gaps
-  const cols = ['#','Fecha','Chofer','Vehículo','Desde','Hasta','Empresa','Detalle','Total'];
-  const xs   = [M, M+9, M+28, M+62, M+82, M+130, M+178, M+212, M+268];
+  // Columnas — landscape 297mm, márgenes 12mm c/u = 273mm útiles
+  // Fecha:18 | Ruta(desde→hasta):90 | Detalle:62 | Solicita:42 | C.Costo:18 | Valor:28
+  const cols = ['Fecha','Ruta (Desde → Hasta)','Detalle','Solicita','C.Costo','Valor'];
+  const xs   = [M, M+20, M+112, M+176, M+221, M+242];
 
   doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(60,60,60);
-  // Fondo cabecera
   doc.setFillColor(225,232,242);doc.rect(M,y-4,W-2*M,8,'F');
   cols.forEach((h,i)=>doc.text(h,xs[i],y));
   y+=2;doc.setDrawColor(14,62,110);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);y+=4;
@@ -1384,21 +1381,20 @@ async function exportGeneralPDF() {
     if(idx%2===0){doc.setFillColor(248,249,250);doc.rect(M,y-3,W-2*M,7,'F');}
     doc.setTextColor(30,30,30);
 
-    const desde  = (r.desde||'').substring(0,22);
-    const hasta  = (r.hasta||'').substring(0,22);
-    const chofer = (r.chofer||'').substring(0,16);
-    const emp    = (r.empresa||'').substring(0,16);
-    const det    = (r.detalle||'').replace(/\n/g,' ').substring(0,24);
+    // Ruta: desde → hasta (90mm de espacio, ~50 chars)
+    const desde   = (r.desde||'').substring(0,24);
+    const hasta   = (r.hasta||'').substring(0,24);
+    const ruta    = hasta ? desde+' → '+hasta : desde;
+    const detalle = (r.detalle||'').replace(/\n/g,' ').substring(0,34);
+    const solicit = (r.solicita||'').substring(0,22);
+    const costo   = (r.costo||'').substring(0,9); // Centro costo mínimo
 
     [
-      String(r.num||''),
       fmtDate(r.fecha),
-      chofer,
-      r.vehiculo||'',
-      desde,
-      hasta,
-      emp,
-      det,
+      ruta,
+      detalle,
+      solicit,
+      costo,
       fmtCLP(r.total)
     ].forEach((v,i)=>doc.text(v,xs[i],y+1));
 
