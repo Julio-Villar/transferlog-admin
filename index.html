@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 /* ── Reset & variables ─────────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -400,7 +401,10 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
             <div class="field"><label>Vehículo (opcional)</label>
               <select id="rp-veh"><option value="">Todos</option><option>Auto</option><option>Furgón</option><option>Sprinter</option><option>Bus</option></select>
             </div>
-            <button class="btn primary" style="width:100%;justify-content:center" onclick="exportGeneralPDF()"><i class="ti ti-file-download"></i> Exportar PDF general</button>
+            <div class="r2" style="margin-top:8px">
+              <button class="btn primary" style="justify-content:center" onclick="exportGeneralPDF()"><i class="ti ti-file-download"></i> PDF general</button>
+              <button class="btn green" style="justify-content:center" onclick="exportGeneralExcel()"><i class="ti ti-table-export"></i> Excel general</button>
+            </div>
           </div>
           <div class="card">
             <div class="card-title">Reporte por usuario</div>
@@ -1410,6 +1414,85 @@ async function exportGeneralPDF() {
   doc.text('Generado el '+new Date().toLocaleDateString('es-CL')+' · TransferLog',W/2,y,{align:'center'});
   doc.save('reporte-general-'+new Date().toISOString().split('T')[0]+'.pdf');
   toast('PDF generado ✓','ok');
+}
+
+async function exportGeneralExcel() {
+  if(!window.XLSX){ toast('SheetJS no disponible','err'); return; }
+  const receipts = await getFilteredReceipts('rp-from','rp-to','rp-veh');
+  if(!receipts.length){ toast('Sin datos para exportar'); return; }
+
+  const profiles = await adminFetch('profiles?select=user_id,email,nombre');
+  const emailMap = {}; profiles.forEach(p => emailMap[p.user_id] = p.nombre || p.email || '—');
+  const from = document.getElementById('rp-from').value;
+  const to   = document.getElementById('rp-to').value;
+
+  // Columnas — todo excepto id, user_id, orden_id
+  const headers = [
+    'N°','Fecha','Chofer','Área','Solicita','Empresa',
+    'Centro Costo','Vehículo','Desde','Hasta',
+    'H. Inicio','Tdo. Espera','Fin Servicio',
+    'Paradas Adicionales','Detalle','Total','Usuario'
+  ];
+
+  const rows = receipts.map(r => [
+    r.num                || '',
+    r.fecha              || '',
+    r.chofer             || '',
+    r.area               || '',
+    r.solicita           || '',
+    r.empresa            || '',
+    r.costo              || '',
+    r.vehiculo           || '',
+    r.desde              || '',
+    r.hasta              || '',
+    r.hinicio            || '',
+    r.espera             || '',
+    r.fin                || '',
+    r.paradas_adicionales != null ? r.paradas_adicionales : '',
+    (r.detalle || '').replace(/\n/g,' '),
+    Number(r.total || 0),
+    emailMap[r.user_id]  || ''
+  ]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  // Ancho de columnas
+  ws['!cols'] = [
+    {wch:6},{wch:12},{wch:18},{wch:14},{wch:20},{wch:20},
+    {wch:12},{wch:10},{wch:24},{wch:24},
+    {wch:10},{wch:12},{wch:12},
+    {wch:8},{wch:35},{wch:14},{wch:22}
+  ];
+
+  // Estilo cabecera (fondo azul, texto blanco) — solo soportado en xlsx comercial,
+  // pero dejamos la fila como está para compatibilidad con la versión libre
+  XLSX.utils.book_append_sheet(wb, ws, 'Recibos');
+
+  // Hoja resumen
+  const total = receipts.reduce((a,r)=>a+Number(r.total||0),0);
+  const wsSum = XLSX.utils.aoa_to_sheet([
+    ['RESUMEN TRANSFERLOG'],
+    ['Período', `${from ? fmtDate(from) : 'inicio'} — ${to ? fmtDate(to) : 'hoy'}`],
+    ['Total recibos', receipts.length],
+    ['Monto total', total],
+    [],
+    ['Por vehículo','Recibos','Total ($)'],
+    ...Object.entries(
+      receipts.reduce((acc,r)=>{
+        const v=r.vehiculo||'Sin tipo';
+        if(!acc[v]) acc[v]={count:0,total:0};
+        acc[v].count++; acc[v].total+=Number(r.total||0);
+        return acc;
+      },{})
+    ).map(([v,d])=>[v, d.count, d.total])
+  ]);
+  wsSum['!cols'] = [{wch:20},{wch:30},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsSum, 'Resumen');
+
+  const fecha = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `reporte-general-${fecha}.xlsx`);
+  toast('Excel descargado ✓','ok');
 }
 
 async function exportUserPDF() {
