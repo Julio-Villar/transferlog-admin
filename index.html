@@ -167,6 +167,34 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 .modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);line-height:1;padding:2px}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:var(--border)}
 
+/* Agenda de conductores */
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.agenda-wrap{overflow-x:auto}
+.ag-row{display:grid;grid-template-columns:180px 1fr;min-width:1560px;border-bottom:var(--border)}
+.ag-row:last-child{border-bottom:none}
+.ag-label{position:sticky;left:0;z-index:3;background:var(--bgw);padding:10px 14px;border-right:var(--border);display:flex;flex-direction:column;justify-content:center;gap:2px}
+.ag-label b{font-size:13px;font-weight:600;color:var(--text)}
+.ag-label small{font-size:11px;color:var(--text2)}
+.ag-track{position:relative;height:58px;background-image:repeating-linear-gradient(to right,transparent 0,transparent calc(100%/24 - 1px),#eceef2 calc(100%/24 - 1px),#eceef2 calc(100%/24))}
+.ag-head .ag-track{height:30px;background:var(--bgs)}
+.ag-head .ag-label{background:var(--bgs);font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;flex-direction:row;align-items:center}
+.ag-hour{position:absolute;top:8px;font-size:10px;color:var(--text2);padding-left:4px}
+.ag-bar{position:absolute;top:8px;height:42px;min-width:22px;border-radius:7px;padding:4px 8px;font-size:11px;line-height:1.3;color:#fff;cursor:pointer;overflow:hidden;box-sizing:border-box;z-index:1;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.ag-bar b{display:block;font-weight:600;white-space:nowrap}
+.ag-bar span{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;opacity:.92}
+.ag-bar:hover{filter:brightness(1.08);z-index:2}
+.ag-pendiente{background:#C58A00}
+.ag-aceptada{background:#185FA5}
+.ag-realizado{background:#7C8591}
+.ag-conflict{outline:2px solid #A32D2D;outline-offset:1px}
+.ag-buf{position:absolute;top:8px;height:42px;border-radius:0 7px 7px 0;background:repeating-linear-gradient(45deg,rgba(0,0,0,.09),rgba(0,0,0,.09) 4px,transparent 4px,transparent 8px)}
+.ag-now{position:absolute;top:0;bottom:0;width:2px;background:#A32D2D;z-index:2;pointer-events:none}
+.ag-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text2);align-items:center}
+.ag-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.disp-ok{background:#E1F5EE;color:#085041;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:6px}
+.disp-bad{background:#FCEBEB;color:#A32D2D;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:6px}
+.disp-info{background:var(--bgs);color:var(--text2);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:6px}
+
 /* Toast */
 .toast{position:fixed;bottom:28px;right:28px;background:var(--text);color:#fff;padding:10px 18px;border-radius:var(--rsm);font-size:13px;font-weight:500;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:300px}
 .toast.show{display:block}
@@ -229,6 +257,7 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <button class="snav-btn" onclick="goTo('rutas')" id="nav-rutas"><i class="ti ti-map-pin"></i>Rutas globales</button>
       <button class="snav-btn" onclick="goTo('recibos')" id="nav-recibos"><i class="ti ti-file-text"></i>Todos los recibos</button>
       <button class="snav-btn" onclick="goTo('ordenes')" id="nav-ordenes"><i class="ti ti-send"></i>Órdenes de viaje</button>
+      <button class="snav-btn" onclick="goTo('agenda')" id="nav-agenda"><i class="ti ti-calendar-time"></i>Agenda conductores</button>
       <div class="snav-section">Estadísticas</div>
       <button class="snav-btn" onclick="goTo('estadisticas')" id="nav-estadisticas"><i class="ti ti-chart-bar"></i>Estadísticas</button>
       <button class="snav-btn" onclick="goTo('reportes')" id="nav-reportes"><i class="ti ti-file-download"></i>Reportes PDF</button>
@@ -305,7 +334,7 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
         <div class="card" style="padding:0">
           <div class="tbl-wrap">
             <table class="tbl" id="routes-table">
-              <thead><tr><th>Origen</th><th>Destino</th><th>Valor ($)</th><th>Usuario</th><th>Creada</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>Origen</th><th>Destino</th><th>Valor ($)</th><th>Duración</th><th>Usuario</th><th>Creada</th><th>Acciones</th></tr></thead>
               <tbody id="routes-tbody"></tbody>
             </table>
           </div>
@@ -367,6 +396,30 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       </div>
 
       <!-- ── ESTADÍSTICAS ───────────────────────────── -->
+      <!-- ── AGENDA DE CONDUCTORES ──────────────────────── -->
+      <div class="page" id="page-agenda">
+        <div class="card" style="padding:14px 16px;margin-bottom:16px">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;justify-content:space-between">
+            <div style="display:flex;gap:8px;align-items:flex-end">
+              <button class="btn" onclick="agendaMove(-1)" title="Día anterior"><i class="ti ti-chevron-left"></i></button>
+              <div class="field" style="margin:0"><label>Día</label><input type="date" id="ag-date" onchange="loadAgenda()"></div>
+              <button class="btn" onclick="agendaMove(1)" title="Día siguiente"><i class="ti ti-chevron-right"></i></button>
+              <button class="btn" onclick="agendaToday()">Hoy</button>
+            </div>
+            <div class="ag-legend">
+              <span><i style="background:#C58A00"></i>Pendiente</span>
+              <span><i style="background:#185FA5"></i>Aceptada</span>
+              <span><i style="background:#7C8591"></i>Realizado (recibo)</span>
+              <span><i style="background:repeating-linear-gradient(45deg,#c9ccd2,#c9ccd2 3px,#fff 3px,#fff 6px)"></i>Margen entre viajes</span>
+              <span><i style="outline:2px solid #A32D2D;background:#fff"></i>Cruce de horarios</span>
+            </div>
+          </div>
+        </div>
+        <div class="text-muted" id="ag-summary" style="margin-bottom:10px">—</div>
+        <div class="card" style="padding:0"><div class="agenda-wrap" id="agenda-wrap"></div></div>
+        <div id="ag-sinhora"></div>
+      </div>
+
       <div class="page" id="page-estadisticas">
         <div class="card" style="padding:14px 16px;margin-bottom:20px">
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
@@ -481,6 +534,22 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
               <i class="ti ti-info-circle"></i> La franja nocturna puede cruzar la medianoche. Ej: 22:00 → 06:00 cubre desde las 22:00 hasta las 06:00 del día siguiente.
             </div>
             <button class="btn primary" onclick="saveNightSettings()"><i class="ti ti-device-floppy"></i> Guardar cobro nocturno</button>
+          </div>
+
+          <!-- Agenda de conductores -->
+          <div class="card">
+            <div class="card-title"><i class="ti ti-calendar-time" style="color:#185FA5"></i> Agenda de conductores</div>
+            <div class="field">
+              <label>Margen entre viajes del mismo conductor (min)</label>
+              <input type="number" id="adm-buffer" placeholder="15" inputmode="numeric" min="0">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">Tiempo de traslado/descanso que el conductor necesita antes de su siguiente viaje.</div>
+            </div>
+            <div class="field">
+              <label>Duración por defecto de un viaje (min)</label>
+              <input type="number" id="adm-defdur" placeholder="60" inputmode="numeric" min="1">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">Se usa cuando la ruta no tiene una duración definida (se edita en Rutas globales).</div>
+            </div>
+            <button class="btn primary" onclick="saveAgendaSettings()"><i class="ti ti-device-floppy"></i> Guardar agenda</button>
           </div>
           <div class="card">
             <div class="card-title">Agregar dato frecuente</div>
@@ -616,7 +685,10 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <div class="field"><label>Origen</label><input type="text" id="nr-origen" placeholder="Ej: Puerto"></div>
       <div class="field"><label>Destino</label><input type="text" id="nr-destino" placeholder="Ej: Aeropuerto"></div>
     </div>
-    <div class="field"><label>Valor en pesos ($)</label><input type="number" id="nr-valor" placeholder="0" inputmode="numeric"></div>
+    <div class="r2">
+      <div class="field"><label>Valor en pesos ($)</label><input type="number" id="nr-valor" placeholder="0" inputmode="numeric"></div>
+      <div class="field"><label>Duración estimada (min)</label><input type="number" id="nr-duracion" placeholder="60" inputmode="numeric" min="1"></div>
+    </div>
     <div class="field"><label>Asignar a usuario (opcional)</label><select id="nr-user"><option value="">— Todos los usuarios —</option></select></div>
     <div id="nr-err" style="font-size:12px;color:var(--red);min-height:16px"></div>
     <div class="modal-footer">
@@ -658,13 +730,13 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
         <select id="no-user"><option value="">— Seleccionar usuario —</option></select>
       </div>
       <div class="r2">
-        <div class="field"><label>Fecha <span style="color:#A32D2D">*</span></label><input type="date" id="no-fecha"></div>
+        <div class="field"><label>Fecha <span style="color:#A32D2D">*</span></label><input type="date" id="no-fecha" onchange="dispDebounce()"></div>
         <div class="field"><label>Vehículo</label>
           <select id="no-vehiculo"><option value="">— Seleccionar —</option><option>Auto</option><option>Furgón</option><option>Sprinter</option><option>Bus</option></select>
         </div>
       </div>
       <div class="r2">
-        <div class="field"><label>Chofer</label><select id="no-chofer"><option value="">— Seleccionar —</option></select></div>
+        <div class="field"><label>Chofer</label><select id="no-chofer" onchange="dispDebounce()"><option value="">— Seleccionar —</option></select></div>
         <div class="field"><label>Área</label><select id="no-area"><option value="">— Seleccionar —</option></select></div>
       </div>
       <div class="field"><label>Solicita</label><select id="no-solicita"><option value="">— Seleccionar —</option></select></div>
@@ -672,14 +744,19 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
         <div class="field"><label>Empresa</label><select id="no-empresa"><option value="">— Seleccionar —</option></select></div>
         <div class="field"><label>Centro de costo</label><select id="no-costo"><option value="">— Seleccionar —</option></select></div>
       </div>
-      <div class="r2">
-        <div class="field"><label>Traslado desde <span style="color:#A32D2D">*</span></label><input type="text" id="no-desde" placeholder="Origen"></div>
-        <div class="field"><label>Hasta <span style="color:#A32D2D">*</span></label><input type="text" id="no-hasta" placeholder="Destino"></div>
+      <div class="field"><label>Ruta guardada (opcional)</label>
+        <select id="no-ruta" onchange="applyRutaOrden()"><option value="">— Seleccionar ruta —</option></select>
       </div>
       <div class="r2">
-        <div class="field"><label>H. Inicio</label><input type="time" id="no-hinicio"></div>
+        <div class="field"><label>Traslado desde <span style="color:#A32D2D">*</span></label><input type="text" id="no-desde" placeholder="Origen" oninput="autoDuracion()"></div>
+        <div class="field"><label>Hasta <span style="color:#A32D2D">*</span></label><input type="text" id="no-hasta" placeholder="Destino" oninput="autoDuracion()"></div>
+      </div>
+      <div class="r3">
+        <div class="field"><label>H. Inicio</label><input type="time" id="no-hinicio" oninput="dispDebounce()" onchange="dispDebounce()"></div>
+        <div class="field"><label>Duración (min)</label><input type="number" id="no-duracion" placeholder="60" inputmode="numeric" min="1" oninput="_duracionManual=true;dispDebounce()"></div>
         <div class="field"><label>Total estimado ($)</label><input type="number" id="no-total" placeholder="0" inputmode="numeric"></div>
       </div>
+      <div id="no-disp"></div>
       <div class="field"><label>Detalle / instrucciones</label><textarea id="no-detalle" placeholder="Instrucciones específicas, observaciones..."></textarea></div>
       <div style="background:var(--bgs);border:var(--border);border-radius:var(--rsm);padding:12px;margin-bottom:4px">
         <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;display:flex;align-items:center;gap:6px">
@@ -906,7 +983,7 @@ function goTo(page) {
   const meta = PAGE_META[page] || {};
   document.getElementById('page-title').textContent = meta.title || page;
   document.getElementById('page-sub').textContent   = meta.sub   || '';
-  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, estadisticas: loadEstadisticas, reportes: ()=>{}, configuracion: loadConfiguracion };
+  const loaders = { dashboard: loadDashboard, usuarios: loadUsers, rutas: loadRoutes, recibos: loadRecibos, ordenes: loadOrdenes, estadisticas: loadEstadisticas, reportes: ()=>{}, configuracion: loadConfiguracion, agenda: loadAgenda };
   if (loaders[page]) loaders[page]();
 }
 
@@ -1178,17 +1255,18 @@ async function loadRoutes() {
         <td><strong>${escH(r.origen||'—')}</strong></td>
         <td>${escH(r.destino||'—')}</td>
         <td style="font-weight:600;color:var(--blue)">${fmtCLP(r.valor)}</td>
+        <td><button class="btn sm ghost" onclick="editRouteDur('${r.id}',${Number(r.duracion_min)||0})" title="Editar duración"><i class="ti ti-clock"></i> ${r.duracion_min ? r.duracion_min+' min' : '—'}</button></td>
         <td class="muted">${escH(emailMap[r.user_id]||'—')}</td>
         <td class="muted">${fmtDate(r.created_at)}</td>
         <td><button class="btn sm danger" onclick="deleteRoute('${r.id}')"><i class="ti ti-trash"></i></button></td>
       </tr>`).join('')
-    : '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Sin rutas</td></tr>';
+    : '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">Sin rutas</td></tr>';
   } catch(e) { toast('Error: '+e.message,'err'); }
   setSyncBadge(false);
 }
 
 function openCreateRoute() {
-  ['nr-origen','nr-destino','nr-valor'].forEach(id=>document.getElementById(id).value='');
+  ['nr-origen','nr-destino','nr-valor','nr-duracion'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('nr-user').value=''; document.getElementById('nr-err').textContent='';
   openModal('modal-create-route');
 }
@@ -1197,12 +1275,13 @@ async function createRoute() {
   const origen  = document.getElementById('nr-origen').value.trim();
   const destino = document.getElementById('nr-destino').value.trim();
   const valor   = document.getElementById('nr-valor').value;
+  const duracion= Number(document.getElementById('nr-duracion').value) || null;
   const uid     = document.getElementById('nr-user').value;
   const err     = document.getElementById('nr-err'); err.textContent='';
   if(!origen||!destino||!valor) { err.textContent='Completa todos los campos'; return; }
   setBtnLoad('nr-btn',true,'<i class="ti ti-plus"></i> Agregar ruta');
   try {
-    const body = { origen, destino, valor:Number(valor), created_at:new Date().toISOString() };
+    const body = { origen, destino, valor:Number(valor), duracion_min:duracion, created_at:new Date().toISOString() };
     if(uid) body.user_id=uid;
     await adminFetch('routes',{method:'POST',body:JSON.stringify(body)});
     toast('Ruta creada ✓','ok'); closeModal('modal-create-route'); loadRoutes();
@@ -1613,6 +1692,8 @@ async function loadConfiguracion() {
     document.getElementById('adm-night-value').value = sm.nightValue     || '';
     document.getElementById('adm-night-from').value  = sm.nightFrom      || '22:00';
     document.getElementById('adm-night-to').value    = sm.nightTo        || '06:00';
+    document.getElementById('adm-buffer').value      = sm.bufferMin      !== undefined ? sm.bufferMin : '15';
+    document.getElementById('adm-defdur').value      = sm.defaultDurationMin || '60';
 
     // Cargar catálogos
     await loadAdminCatalogs();
@@ -1783,6 +1864,8 @@ async function verOrden(id) {
       ${row('Solicita', o.solicita)}${row('Empresa', o.empresa)}${row('Centro costo', o.costo)}
       ${row('Desde', o.desde)}${row('Hasta', o.hasta)}
       ${row('H. Inicio', o.hinicio)}
+      ${row('Duración estimada', o.duracion_min ? o.duracion_min+' min' : null)}
+      ${row('Hora de término estimada', o.fin_ts ? hhmm(tsToMin(o.fin_ts)) : null)}
       ${row('Total estimado', o.total ? fmtCLP(o.total) : null)}
     </table>
     ${o.detalle ? `<div style="margin-top:10px;font-size:12px;color:var(--text2);border-top:var(--border);padding-top:8px">${escH(o.detalle)}</div>` : ''}
@@ -1819,7 +1902,11 @@ async function openCreateOrden() {
     o.value = u.user_id; o.textContent = u.email || u.user_id; selUser.appendChild(o);
   });
 
+  document.getElementById('no-duracion').value = '';
+  document.getElementById('no-disp').innerHTML = '';
+  _duracionManual = false;
   openModal('modal-create-orden');
+  initOrdenAgenda();
 
   // Cargar catálogos desde Supabase en los selects
   try {
@@ -1827,6 +1914,7 @@ async function openCreateOrden() {
     const byTipo = {};
     rows.forEach(r => { if (!byTipo[r.tipo]) byTipo[r.tipo] = []; byTipo[r.tipo].push(r.valor); });
 
+    _choferesCat = byTipo.choferes || [];
     const MAP = {
       'no-chofer':   { tipo:'choferes',     label:'Seleccionar chofer'      },
       'no-area':     { tipo:'areas',         label:'Seleccionar área'        },
@@ -1859,6 +1947,21 @@ async function createOrden() {
   if (!uid || !fecha || !desde || !hasta) { err.textContent = 'Completa los campos obligatorios (usuario, fecha, desde y hasta)'; return; }
   setBtnLoad('no-btn', true, '<i class="ti ti-send"></i> Enviar orden');
   try {
+    // Validar disponibilidad del conductor con datos frescos (si hay chofer y hora de inicio)
+    await loadAgendaCfg();
+    const rg = nuevoRango();
+    const choferSel = document.getElementById('no-chofer').value.trim();
+    if (choferSel && rg) {
+      const items = await getOcupacion(fecha);
+      const conf = conflictosDe(choferSel, rg, items);
+      if (conf.length) {
+        err.textContent = '⚠ ' + choferSel + ' no está disponible: cruza con ' +
+          conf.map(c => c.desc + ' (' + hhmm(c.s) + '–' + hhmm(c.e) + ')').join('; ') + '. Elige otro conductor u otro horario.';
+        setBtnLoad('no-btn', false, '<i class="ti ti-send"></i> Enviar orden');
+        checkDisponibilidad();
+        return;
+      }
+    }
     const body = {
       created_by:  adminSession.user.id,
       assigned_to: uid,
@@ -1871,6 +1974,10 @@ async function createOrden() {
       costo:     document.getElementById('no-costo').value.trim(),
       desde, hasta,
       hinicio:   document.getElementById('no-hinicio').value,
+      duracion_min:  Number(document.getElementById('no-duracion').value) || null,
+      inicio_ts:     rg ? minToTs(rg.s)    : null,
+      fin_ts:        rg ? minToTs(rg.e)    : null,
+      ocupado_hasta: rg ? minToTs(rg.ocup) : null,
       total:     Number(document.getElementById('no-total').value || 0) || null,
       detalle:   document.getElementById('no-detalle').value.trim(),
       created_at: new Date().toISOString()
@@ -1897,8 +2004,268 @@ async function createOrden() {
     }
 
     toast('Orden enviada ✓', 'ok'); closeModal('modal-create-orden'); loadOrdenes();
-  } catch(e) { err.textContent = 'Error: ' + e.message; }
+  } catch(e) { err.textContent = ordenErrMsg(e); }
   setBtnLoad('no-btn', false, '<i class="ti ti-send"></i> Enviar orden');
+}
+
+// ══════════════════════════════════════════════════════════
+// AGENDA DE CONDUCTORES — línea de tiempo + validación de cruces
+// ══════════════════════════════════════════════════════════
+PAGE_META['agenda'] = { title:'Agenda de conductores', sub:'Línea de tiempo de los viajes de cada chofer' };
+
+const AG_DEFAULTS = { buffer:15, defDur:60 };
+let _agCfg = { ...AG_DEFAULTS };
+let _rutasCat = [];          // rutas (con duración) para el modal de órdenes
+let _choferesCat = [];       // nombres del catálogo de choferes
+let _duracionManual = false; // true si el admin editó la duración a mano
+let _dispTimer = null;
+
+// ── Helpers de tiempo (hora de pared, sin zona horaria) ──
+const _p2 = n => String(n).padStart(2,'0');
+function todayLocal(){ const d=new Date(); return d.getFullYear()+'-'+_p2(d.getMonth()+1)+'-'+_p2(d.getDate()); }
+function dayMin(dateStr,timeStr){
+  const [y,m,d]=String(dateStr).split('-').map(Number);
+  const [h,mi]=String(timeStr||'00:00').split(':').map(Number);
+  return Date.UTC(y,m-1,d,h||0,mi||0)/60000;
+}
+function tsToMin(ts){ const [d,t]=String(ts).replace(' ','T').split('T'); return dayMin(d,(t||'00:00').slice(0,5)); }
+function minToTs(min){
+  const x=new Date(min*60000);
+  return x.getUTCFullYear()+'-'+_p2(x.getUTCMonth()+1)+'-'+_p2(x.getUTCDate())+'T'+_p2(x.getUTCHours())+':'+_p2(x.getUTCMinutes())+':00';
+}
+function hhmm(min){ const x=new Date(min*60000); return _p2(x.getUTCHours())+':'+_p2(x.getUTCMinutes()); }
+function addDays(dateStr,n){ return minToTs(dayMin(dateStr,'00:00')+n*1440).slice(0,10); }
+
+async function loadAgendaCfg(){
+  try{
+    const rows = await adminFetch('settings?key=in.(bufferMin,defaultDurationMin)&select=key,value');
+    const m={}; rows.forEach(r=>m[r.key]=r.value);
+    _agCfg = {
+      buffer: (m.bufferMin!==undefined && m.bufferMin!=='') ? Math.max(0,Number(m.bufferMin)||0) : AG_DEFAULTS.buffer,
+      defDur: Math.max(1, Number(m.defaultDurationMin)||AG_DEFAULTS.defDur)
+    };
+  }catch(e){ _agCfg={...AG_DEFAULTS}; }
+  return _agCfg;
+}
+
+// Rango [s,e) del viaje y ocupación [s,ocup) incluyendo el margen. null si no tiene hora.
+function ordenRange(o,cfg){
+  let s,e,ocup;
+  if(o.inicio_ts){
+    s=tsToMin(o.inicio_ts); e=tsToMin(o.fin_ts||o.ocupado_hasta||o.inicio_ts);
+    ocup=tsToMin(o.ocupado_hasta||o.fin_ts||o.inicio_ts);
+  } else if(o.fecha && o.hinicio){      // órdenes antiguas, anteriores a la agenda
+    s=dayMin(o.fecha,o.hinicio); e=s+(Number(o.duracion_min)||cfg.defDur); ocup=e+cfg.buffer;
+  } else return null;
+  return {s,e,ocup};
+}
+function reciboRange(r,cfg){
+  if(!r.fecha||!r.hinicio) return null;
+  const s=dayMin(r.fecha,r.hinicio);
+  let e=r.fin ? dayMin(r.fecha,r.fin) : s+cfg.defDur;
+  if(e<=s) e+=1440;                      // el viaje cruzó la medianoche
+  return {s,e,ocup:e+cfg.buffer};
+}
+
+// ── Línea de tiempo ──
+function agendaMove(n){ const i=document.getElementById('ag-date'); i.value=addDays(i.value||todayLocal(),n); loadAgenda(); }
+function agendaToday(){ document.getElementById('ag-date').value=todayLocal(); loadAgenda(); }
+function openReciboFresh(id){ _allRecibosCache=[]; openRecibo(id); }
+
+async function loadAgenda(){
+  const inp=document.getElementById('ag-date');
+  if(!inp.value) inp.value=todayLocal();
+  const day=inp.value;
+  setSyncBadge(true);
+  try{
+    const cfg=await loadAgendaCfg();
+    const prev=addDays(day,-1);
+    const [ordenes,recibos,cats]=await Promise.all([
+      adminFetch('ordenes?estado=in.(pendiente,aceptada)&fecha=gte.'+prev+'&fecha=lte.'+day+'&order=hinicio.asc'),
+      adminFetch('receipts?fecha=gte.'+prev+'&fecha=lte.'+day+'&select=id,num,fecha,chofer,hinicio,fin,desde,hasta,total'),
+      adminFetch('catalogs?tipo=eq.choferes&order=valor.asc')
+    ]);
+    const dayS=dayMin(day,'00:00'), dayE=dayS+1440;
+    const items=[], sinHora=[];
+
+    ordenes.forEach(o=>{
+      const rg=ordenRange(o,cfg);
+      if(!rg){ if(o.fecha===day) sinHora.push(o); return; }
+      if(rg.e<=dayS||rg.s>=dayE) return;
+      items.push({kind:'orden',id:o.id,chofer:(o.chofer||'').trim(),estado:o.estado,desde:o.desde,hasta:o.hasta,total:o.total,...rg});
+    });
+    recibos.forEach(r=>{
+      const rg=reciboRange(r,cfg); if(!rg) return;
+      if(rg.e<=dayS||rg.s>=dayE) return;
+      items.push({kind:'recibo',id:r.id,num:r.num,chofer:(r.chofer||'').trim(),estado:'realizado',desde:r.desde,hasta:r.hasta,total:r.total,...rg});
+    });
+
+    // Una fila por conductor del catálogo + los que aparezcan en los viajes
+    const names=[...new Set([...cats.map(c=>c.valor),...items.map(i=>i.chofer).filter(Boolean)])]
+      .sort((a,b)=>a.localeCompare(b,'es'));
+    const rows=names.map(n=>({name:n,items:items.filter(i=>i.chofer===n)}));
+    if(items.some(i=>!i.chofer)) rows.push({name:'',sin:true,items:items.filter(i=>!i.chofer)});
+
+    // Detectar cruces dentro de cada conductor
+    let conflictos=0;
+    rows.forEach(r=>{
+      if(r.sin) return;
+      for(let i=0;i<r.items.length;i++) for(let j=i+1;j<r.items.length;j++){
+        const a=r.items[i], b=r.items[j];
+        if(a.s<b.ocup && b.s<a.ocup){ a.conflict=b.conflict=true; conflictos++; }
+      }
+    });
+
+    const wrap=document.getElementById('agenda-wrap');
+    if(!rows.length){
+      wrap.innerHTML='<div class="empty-state"><i class="ti ti-steering-wheel"></i>No hay conductores. Agrégalos en Configuración → Datos frecuentes → Chofer.</div>';
+    } else {
+      const pct=m=>(m-dayS)/1440*100;
+      const esHoy = day===todayLocal();
+      const n=new Date();
+      const nowLine = esHoy ? `<div class="ag-now" style="left:${pct(dayS+n.getHours()*60+n.getMinutes())}%" title="Ahora"></div>` : '';
+      let html='<div class="ag-row ag-head"><div class="ag-label">Conductor</div><div class="ag-track">'+
+        Array.from({length:24},(_,h)=>`<span class="ag-hour" style="left:${h/24*100}%">${_p2(h)}:00</span>`).join('')+
+        '</div></div>';
+      rows.forEach(r=>{
+        const bars=r.items.map(it=>{
+          const s=Math.max(it.s,dayS), e=Math.min(it.e,dayE);
+          const left=pct(s), width=Math.max(pct(e)-pct(s),0.9);
+          const oc=Math.min(it.ocup,dayE);
+          const buf = oc>e ? `<div class="ag-buf" style="left:${pct(e)}%;width:${pct(oc)-pct(e)}%"></div>` : '';
+          const ruta=(it.desde||'')+(it.hasta?' → '+it.hasta:'');
+          const tipo = it.kind==='recibo' ? 'Recibo #'+(it.num||'') : 'Orden '+it.estado;
+          const tip = [tipo, hhmm(it.s)+' – '+hhmm(it.e), ruta, it.total?fmtCLP(it.total):'', it.conflict?'⚠ CRUCE DE HORARIOS':''].filter(Boolean).join('\n');
+          const click = it.kind==='orden' ? `verOrden('${it.id}')` : `openReciboFresh('${it.id}')`;
+          return buf+`<div class="ag-bar ag-${it.estado}${it.conflict?' ag-conflict':''}" style="left:${left}%;width:${width}%" title="${escH(tip)}" onclick="${click}"><b>${hhmm(it.s)}–${hhmm(it.e)}</b><span>${escH(ruta)}</span></div>`;
+        }).join('');
+        const sub = r.items.length ? r.items.length+(r.items.length===1?' viaje':' viajes') : 'Libre todo el día';
+        html+=`<div class="ag-row"><div class="ag-label"><b>${r.sin?'Sin conductor':escH(r.name)}</b><small>${sub}</small></div><div class="ag-track">${nowLine}${bars}</div></div>`;
+      });
+      wrap.innerHTML=html;
+    }
+
+    const conViajes=rows.filter(r=>!r.sin&&r.items.length).length;
+    const libres=rows.filter(r=>!r.sin&&!r.items.length).length;
+    document.getElementById('ag-summary').innerHTML =
+      `<strong>${fmtDate(day)}</strong> · ${items.length} viajes · ${conViajes} conductores con viajes · ${libres} libres todo el día` +
+      (conflictos ? ` · <span style="color:var(--red);font-weight:600">⚠ ${conflictos} cruce${conflictos>1?'s':''} de horario</span>` : '');
+
+    document.getElementById('ag-sinhora').innerHTML = sinHora.length ? `
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Órdenes sin hora de inicio (no se validan ni se dibujan)</div>
+        ${sinHora.map(o=>`<div style="padding:6px 0;border-bottom:var(--border);font-size:13px;cursor:pointer" onclick="verOrden('${o.id}')">
+          <strong>${escH(o.chofer||'Sin conductor')}</strong> · ${escH(o.desde||'')} → ${escH(o.hasta||'')}</div>`).join('')}
+      </div>` : '';
+  }catch(e){ toast('Error al cargar la agenda: '+e.message,'err'); }
+  setSyncBadge(false);
+}
+
+// ── Disponibilidad al crear una orden ──
+async function getOcupacion(fecha){
+  const prev=addDays(fecha,-1);
+  const [ords,recs]=await Promise.all([
+    adminFetch('ordenes?estado=in.(pendiente,aceptada)&fecha=gte.'+prev+'&fecha=lte.'+addDays(fecha,1)),
+    adminFetch('receipts?fecha=gte.'+prev+'&fecha=lte.'+fecha+'&select=id,num,fecha,chofer,hinicio,fin,desde,hasta')
+  ]);
+  const items=[];
+  ords.forEach(o=>{ const rg=ordenRange(o,_agCfg); if(rg) items.push({...rg,chofer:(o.chofer||'').trim(),desc:'orden '+o.estado+' '+(o.desde||'')+' → '+(o.hasta||'')}); });
+  recs.forEach(r=>{ const rg=reciboRange(r,_agCfg); if(rg) items.push({...rg,chofer:(r.chofer||'').trim(),desc:'recibo #'+(r.num||'')+' '+(r.desde||'')+' → '+(r.hasta||'')}); });
+  return items;
+}
+function nuevoRango(){
+  const v=id=>{const el=document.getElementById(id);return el?el.value.trim():'';};
+  const fecha=v('no-fecha'), hini=v('no-hinicio'), dur=Number(v('no-duracion'))||0;
+  if(!fecha||!hini||dur<1) return null;
+  const s=dayMin(fecha,hini), e=s+dur;
+  return {s,e,ocup:e+_agCfg.buffer};
+}
+function conflictosDe(chofer,rg,items){ return items.filter(it=>it.chofer===chofer && rg.s<it.ocup && it.s<rg.ocup); }
+
+function dispDebounce(){ clearTimeout(_dispTimer); _dispTimer=setTimeout(checkDisponibilidad,350); }
+
+async function checkDisponibilidad(){
+  const box=document.getElementById('no-disp'); if(!box) return null;
+  const rg=nuevoRango();
+  if(!rg){ box.innerHTML=''; return null; }
+  try{
+    const fecha=document.getElementById('no-fecha').value;
+    const items=await getOcupacion(fecha);
+    const chofer=document.getElementById('no-chofer').value.trim();
+    const libres=_choferesCat.filter(n=>conflictosDe(n,rg,items).length===0);
+    let html='';
+    if(chofer){
+      const cf=conflictosDe(chofer,rg,items);
+      html += cf.length
+        ? `<div class="disp-bad">⚠ <b>${escH(chofer)}</b> no está disponible: cruza con ${cf.map(c=>escH(c.desc)+' ('+hhmm(c.s)+'–'+hhmm(c.e)+')').join('; ')}</div>`
+        : `<div class="disp-ok">✓ <b>${escH(chofer)}</b> está disponible de ${hhmm(rg.s)} a ${hhmm(rg.e)}${_agCfg.buffer?' (+'+_agCfg.buffer+' min de margen)':''}</div>`;
+    }
+    html += `<div class="disp-info">Libres en ese horario: ${libres.length ? libres.map(escH).join(', ') : 'ninguno'}</div>`;
+    box.innerHTML=html;
+    return {rg,items};
+  }catch(e){ box.innerHTML='<div class="disp-info">No se pudo verificar la disponibilidad: '+escH(String(e.message).slice(0,90))+'</div>'; return null; }
+}
+
+async function initOrdenAgenda(){
+  await loadAgendaCfg();
+  try{
+    const rows=await adminFetch('routes?select=origen,destino,valor,duracion_min&order=origen.asc');
+    const seen=new Set(); _rutasCat=[];
+    rows.forEach(r=>{ const k=(r.origen||'').trim().toLowerCase()+'|'+(r.destino||'').trim().toLowerCase(); if(!seen.has(k)){ seen.add(k); _rutasCat.push(r); } });
+  }catch(e){ _rutasCat=[]; }
+  const sel=document.getElementById('no-ruta');
+  sel.innerHTML='<option value="">— Seleccionar ruta —</option>'+
+    _rutasCat.map((r,i)=>`<option value="${i}">${escH(r.origen)} → ${escH(r.destino)}${r.duracion_min?' · '+r.duracion_min+' min':''}</option>`).join('');
+  if(!document.getElementById('no-duracion').value) document.getElementById('no-duracion').value=_agCfg.defDur;
+}
+function applyRutaOrden(){
+  const i=document.getElementById('no-ruta').value; if(i==='') return;
+  const r=_rutasCat[Number(i)]; if(!r) return;
+  document.getElementById('no-desde').value=r.origen;
+  document.getElementById('no-hasta').value=r.destino;
+  if(r.valor) document.getElementById('no-total').value=r.valor;
+  _duracionManual=false; autoDuracion(true);
+}
+// Si desde/hasta coinciden con una ruta guardada, usa su duración (salvo que el admin la haya editado)
+function autoDuracion(force){
+  if(_duracionManual && !force) return;
+  const d=document.getElementById('no-desde').value.trim().toLowerCase();
+  const h=document.getElementById('no-hasta').value.trim().toLowerCase();
+  const r=_rutasCat.find(x=>(x.origen||'').trim().toLowerCase()===d && (x.destino||'').trim().toLowerCase()===h);
+  document.getElementById('no-duracion').value=(r&&r.duracion_min)?r.duracion_min:_agCfg.defDur;
+  dispDebounce();
+}
+function ordenErrMsg(e){
+  const m=String(e.message||e);
+  if(m.includes('23P01')||m.includes('ordenes_sin_cruce_chofer'))
+    return '⚠ El conductor ya tiene otro viaje que se cruza con ese horario (validado por la base de datos). Revisa la Agenda.';
+  if(m.includes('PGRST204')||m.includes('duracion_min')||m.includes('inicio_ts')||m.includes('ocupado_hasta'))
+    return 'Falta ejecutar agenda_setup.sql en Supabase (columnas nuevas de la agenda).';
+  return 'Error: '+m;
+}
+
+// ── Duración de rutas y ajustes de agenda ──
+async function editRouteDur(id,actual){
+  const v=prompt('Duración estimada de esta ruta en minutos:', actual||_agCfg.defDur);
+  if(v===null) return;
+  const n=Math.round(Number(v));
+  if(!n||n<1){ toast('Ingresa un número de minutos válido','err'); return; }
+  try{ await adminFetch('routes?id=eq.'+id,{method:'PATCH',body:JSON.stringify({duracion_min:n})}); toast('Duración actualizada ✓','ok'); loadRoutes(); }
+  catch(e){ toast('Error: '+e.message,'err'); }
+}
+async function upsertSetting(key,value){
+  const ex=await adminFetch('settings?key=eq.'+key+'&select=id');
+  const body={value:String(value),updated_at:new Date().toISOString()};
+  if(ex.length) return adminFetch('settings?key=eq.'+key,{method:'PATCH',body:JSON.stringify(body)});
+  return adminFetch('settings',{method:'POST',body:JSON.stringify({key,...body})});
+}
+async function saveAgendaSettings(){
+  const buffer=Math.max(0,Math.round(Number(document.getElementById('adm-buffer').value||0)));
+  const defdur=Math.max(1,Math.round(Number(document.getElementById('adm-defdur').value||60)));
+  try{
+    await Promise.all([upsertSetting('bufferMin',buffer),upsertSetting('defaultDurationMin',defdur)]);
+    toast('Configuración de agenda guardada ✓','ok');
+  }catch(e){ toast('Error: '+e.message,'err'); }
 }
 
 // Cerrar overlays al hacer click afuera
