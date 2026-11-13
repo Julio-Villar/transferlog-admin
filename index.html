@@ -195,6 +195,9 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 .disp-bad{background:#FCEBEB;color:#A32D2D;border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:6px}
 .disp-info{background:var(--bgs);color:var(--text2);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:6px}
 
+/* Supervisor: no ve gestión de usuarios, configuración ni rutas; no elimina recibos */
+body.rol-supervisor #nav-usuarios,body.rol-supervisor #nav-configuracion,body.rol-supervisor #nav-rutas,body.rol-supervisor #mr-del{display:none!important}
+
 /* Toast */
 .toast{position:fixed;bottom:28px;right:28px;background:var(--text);color:#fff;padding:10px 18px;border-radius:var(--rsm);font-size:13px;font-weight:500;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:300px}
 .toast.show{display:block}
@@ -265,7 +268,7 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
       <button class="snav-btn" onclick="goTo('configuracion')" id="nav-configuracion"><i class="ti ti-settings"></i>Configuración</button>
     </nav>
     <div class="sidebar-footer">
-      <div class="user-info"><strong id="sb-email">—</strong>Administrador</div>
+      <div class="user-info"><strong id="sb-email">—</strong><span id="sb-rol">Administrador</span></div>
       <button class="btn-out" onclick="adminLogout()"><i class="ti ti-logout"></i> Cerrar sesión</button>
     </div>
   </aside>
@@ -621,7 +624,7 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
     </div>
     <div class="field"><label>Nombre completo</label><input type="text" id="nu-nombre" placeholder="Ej: Juan Pérez"></div>
     <div class="field"><label>Correo electrónico</label><input type="email" id="nu-email" placeholder="correo@empresa.com"></div>
-    <div class="field"><label>Contraseña temporal</label><input type="text" id="nu-pass" placeholder="Mínimo 6 caracteres"></div>
+    <div class="field"><label>Contraseña temporal</label><input type="text" id="nu-pass" placeholder="Mínimo 8 caracteres"></div>
     <!-- Solo visible para usuarios de app -->
     <div id="nu-rol-section" class="field">
       <label>Rol en la app admin</label>
@@ -795,7 +798,8 @@ table.tbl td.muted{color:var(--text2);font-size:12px}
 // ── Config ────────────────────────────────────────────────
 const SB_URL  = 'https://luosbdpumkoqsfiwqjft.supabase.co';
 const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx1b3NiZHB1bWtvcXNmaXdxamZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NzcwMjQsImV4cCI6MjA5NzQ1MzAyNH0.uqr2LcLICRxN6Galo8mqeeawzNk48_oS7S5WQmuZFwo';
-const SB_SERVICE = localStorage.getItem('tl_service_key') || '';
+// La Service Role Key ya NO se usa en el navegador. Se elimina la que haya quedado guardada.
+try { localStorage.removeItem('tl_service_key'); } catch(e) {}
 
 const {jsPDF} = window.jspdf || {};
 
@@ -804,7 +808,7 @@ let _sb = null;
 try {
   if (window.supabase && window.supabase.createClient) {
     _sb = window.supabase.createClient(SB_URL, SB_ANON, {
-      auth: { persistSession: true, autoRefreshToken: true }
+      auth: { persistSession: true, autoRefreshToken: true, storageKey: 'tl-admin-auth' }
     });
   } else {
     console.error('Supabase SDK no disponible');
@@ -818,117 +822,126 @@ let allUsers     = [];
 let currentEditUserId = null;
 let currentReciboId   = null;
 
-// ── Auth ──────────────────────────────────────────────────
+// ── Auth: sesión del propio administrador (JWT). Los permisos los aplica la base (RLS). ──
+let adminRol = null;
+
+function showLogin(msg){
+  document.getElementById('auth-overlay').classList.add('show');
+  document.getElementById('app-layout').style.display = 'none';
+  const err = document.getElementById('a-err'); if (err) err.textContent = msg || '';
+  const btn = document.getElementById('a-btn');
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; }
+}
+
+// Token vigente: el SDK lo renueva solo cuando está por vencer
+async function currentToken(){
+  if (!_sb) throw new Error('No se pudo cargar el SDK de Supabase. Recarga la página.');
+  const { data:{ session } } = await _sb.auth.getSession();
+  if (!session) { showLogin('Tu sesión expiró. Ingresa nuevamente.'); throw new Error('Sesión expirada'); }
+  adminSession = session;
+  return session.access_token;
+}
+
+// Verifica el rol y abre el panel. Devuelve un mensaje de error, o null si todo salió bien.
+async function enterPanel(session){
+  adminSession = session;
+  const rows = await adminFetch('profiles?user_id=eq.' + session.user.id + '&select=rol');
+  const rol = rows[0] && rows[0].rol;
+  if (rol !== 'admin' && rol !== 'supervisor') {
+    try { await _sb.auth.signOut(); } catch(e) {}
+    adminSession = null;
+    return rol ? 'Tu rol ("' + rol + '") no tiene acceso al panel de administración'
+               : 'No se encontró tu perfil. Ejecuta el SQL de configuración en Supabase.';
+  }
+  adminRol = rol;
+  document.body.classList.toggle('rol-supervisor', rol === 'supervisor');
+  document.getElementById('sb-email').textContent = session.user.email;
+  document.getElementById('sb-rol').textContent = rol === 'admin' ? 'Administrador' : 'Supervisor';
+  document.getElementById('auth-overlay').classList.remove('show');
+  document.getElementById('app-layout').style.display = 'flex';
+  initDateFilters();
+  loadDashboard();
+  loadUsersForSelects();
+  return null;
+}
+
 async function doAdminLogin() {
   const email = document.getElementById('a-email').value.trim();
   const pass  = document.getElementById('a-pass').value;
   const err   = document.getElementById('a-err');
   const btn   = document.getElementById('a-btn');
   err.textContent = '';
-
   if (!email || !pass) { err.textContent = 'Ingresa correo y contraseña'; return; }
-
+  if (!_sb) { err.textContent = 'No se pudo cargar el SDK de Supabase. Recarga la página.'; return; }
   btn.innerHTML = '<span class="spin"></span> Ingresando...'; btn.disabled = true;
-
-  // Guardar service key si fue ingresada
-  const skInput = document.getElementById('a-service-key');
-  if (skInput && skInput.value.trim()) {
-    localStorage.setItem('tl_service_key', skInput.value.trim());
-    location.reload(); return;
-  }
-
   try {
-    // Login directo vía REST — no depende del SDK
-    const loginRes = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: {
-        'apikey':       SB_ANON,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email, password: pass })
-    });
-
-    const loginData = await loginRes.json();
-
-    if (!loginRes.ok || loginData.error) {
-      err.textContent = loginData.error_description || loginData.msg || 'Credenciales incorrectas';
-      btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
-      return;
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password: pass });
+    if (error) { err.textContent = 'Correo o contraseña incorrectos'; }
+    else {
+      const msg = await enterPanel(data.session);
+      if (msg) err.textContent = msg;
+      else document.getElementById('a-pass').value = '';
     }
-
-    const accessToken = loginData.access_token;
-    const userId      = loginData.user?.id;
-    adminSession      = { access_token: accessToken, user: loginData.user };
-
-    // Verificar rol
-    const profRes = await fetch(SB_URL + '/rest/v1/profiles?user_id=eq.' + userId + '&select=rol', {
-      headers: {
-        'apikey':        SB_SERVICE || SB_ANON,
-        'Authorization': 'Bearer ' + (SB_SERVICE || accessToken)
-      }
-    });
-    const profiles = await profRes.json();
-    const rol = profiles[0]?.rol;
-
-    if (rol !== 'admin' && rol !== 'supervisor') {
-      err.textContent = rol
-        ? 'Rol "' + rol + '" sin permisos de admin'
-        : 'Perfil no encontrado — ejecuta el SQL de configuración';
-      adminSession = null;
-      btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
-      return;
-    }
-
-    // Éxito — mostrar panel
-    document.getElementById('sb-email').textContent = email;
-    document.getElementById('auth-overlay').classList.remove('show');
-    document.getElementById('app-layout').style.display = 'flex';
-    initDateFilters();
-    loadDashboard();
-    loadUsersForSelects();
-
   } catch(e) {
-    err.textContent = 'Error de conexión: ' + e.message;
-    btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
+    if (e.message !== 'Sesión expirada') err.textContent = 'Error de conexión: ' + e.message;
   }
+  btn.innerHTML = '<i class="ti ti-login"></i> Ingresar como admin'; btn.disabled = false;
+}
+
+// Al recargar la página: si ya hay una sesión válida, entra directo
+async function restoreSession(){
+  if (!_sb) return;
+  try {
+    const { data:{ session } } = await _sb.auth.getSession();
+    if (!session) return;
+    const msg = await enterPanel(session);
+    if (msg) showLogin(msg);
+  } catch(e) { /* se queda la pantalla de login */ }
 }
 
 async function adminLogout() {
   if (!confirm('¿Cerrar sesión?')) return;
-  await _sb.auth.signOut();
-  adminSession = null;
-  document.getElementById('auth-overlay').classList.add('show');
-  document.getElementById('app-layout').style.display = 'none';
+  try { if (_sb) await _sb.auth.signOut(); } catch(e) {}
+  adminSession = null; adminRol = null;
+  document.body.classList.remove('rol-supervisor');
+  showLogin('');
 }
 
-// ── REST helper con service key (admin bypass RLS) ────────
+// ── Acceso a datos con el JWT del administrador ───────────
 async function adminFetch(path, opts = {}) {
-  // Usa service key si está disponible (bypass RLS), si no usa el JWT del usuario
-  const token = SB_SERVICE || adminSession?.access_token || SB_ANON;
+  const token = await currentToken();
   const res = await fetch(SB_URL + '/rest/v1/' + path, {
     ...opts,
     headers: {
-      'apikey':        SB_SERVICE || SB_ANON,
+      'apikey':        SB_ANON,
       'Authorization': 'Bearer ' + token,
       'Content-Type':  'application/json',
       'Prefer':        'return=representation',
       ...(opts.headers || {})
     }
   });
+  if (res.status === 401) { showLogin('Tu sesión expiró. Ingresa nuevamente.'); throw new Error('Sesión expirada'); }
   if (!res.ok) { const t = await res.text(); throw new Error(t); }
   const t = await res.text(); return t ? JSON.parse(t) : [];
 }
 
-// Admin Auth API (requiere service key)
-async function adminAuthFetch(path, body) {
-  if (!SB_SERVICE) throw new Error('Se requiere la Service Role Key para esta operación. Configúrala en la sección de ajustes.');
-  const res = await fetch(SB_URL + '/auth/v1/admin/' + path, {
-    method: 'POST',
-    headers: { 'apikey': SB_SERVICE, 'Authorization': 'Bearer ' + SB_SERVICE, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!res.ok) { const t = await res.text(); throw new Error(t); }
-  return res.json();
+// Gestión de usuarios: la hace la Edge Function "admin-users" en el servidor (verifica que seas admin)
+async function adminUsersFn(action, payload = {}) {
+  const token = await currentToken();
+  let res;
+  try {
+    res = await fetch(SB_URL + '/functions/v1/admin-users', {
+      method: 'POST',
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload })
+    });
+  } catch(e) {
+    throw new Error('No se pudo contactar la función "admin-users". Verifica que esté desplegada (SEGURIDAD.md, paso 1).');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 404) throw new Error('La función "admin-users" no está desplegada en Supabase (SEGURIDAD.md, paso 1).');
+  if (!res.ok || data.error) throw new Error(data.error || ('Error ' + res.status));
+  return data;
 }
 
 // ── UI helpers ────────────────────────────────────────────
@@ -1141,30 +1154,17 @@ async function createUser() {
   err.textContent = '';
   if (!nombre)       { err.textContent = 'El nombre es obligatorio'; return; }
   if (!email||!pass) { err.textContent = 'Completa correo y contraseña'; return; }
-  if (pass.length<6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres'; return; }
+  if (pass.length<8) { err.textContent = 'La contraseña debe tener al menos 8 caracteres'; return; }
   setBtnLoad('nu-btn', true, '<i class="ti ti-user-plus"></i> Crear');
   try {
-    const userData = await adminAuthFetch('users', { email, password: pass, email_confirm: true });
-    const uid = userData.id;
-    await adminFetch('profiles', {
-      method: 'POST',
-      body: JSON.stringify({ user_id: uid, email, nombre, rol, created_at: new Date().toISOString() })
-    });
-    // Si es conductor, agregarlo también al catálogo de choferes
-    if (rol === 'conductor') {
-      await adminFetch('catalogs', {
-        method: 'POST',
-        body: JSON.stringify({ tipo: 'choferes', valor: nombre, created_at: new Date().toISOString() })
-      });
-    }
+    // El servidor crea la cuenta, el perfil y (si es conductor) lo agrega al catálogo de choferes
+    await adminUsersFn('create_user', { email, password: pass, nombre, rol });
     toast('Usuario creado ✓', 'ok');
     closeModal('modal-create-user');
     loadUsers();
     loadUsersForSelects();
   } catch(e) {
-    err.textContent = e.message.includes('Service Role')
-      ? 'Necesitas configurar la Service Role Key en Supabase → Settings → API'
-      : 'Error: ' + e.message;
+    err.textContent = e.message;
   }
   setBtnLoad('nu-btn', false, '<i class="ti ti-user-plus"></i> Crear');
 }
@@ -1202,8 +1202,8 @@ async function updateUser() {
       body: JSON.stringify({ nombre, rol })
     });
     if (pass) {
-      if (pass.length<6) { err.textContent='La contraseña debe tener al menos 6 caracteres'; setBtnLoad('eu-btn',false,'<i class="ti ti-check"></i> Guardar'); return; }
-      await adminAuthFetch('users/'+currentEditUserId, { password: pass });
+      if (pass.length<8) { err.textContent='La contraseña debe tener al menos 8 caracteres'; setBtnLoad('eu-btn',false,'<i class="ti ti-check"></i> Guardar'); return; }
+      await adminUsersFn('set_password', { user_id: currentEditUserId, password: pass });
     }
     toast('Usuario actualizado ✓', 'ok');
     closeModal('modal-edit-user');
@@ -1213,12 +1213,9 @@ async function updateUser() {
 }
 
 async function confirmDeleteUser() {
-  if (!confirm('¿Eliminar este usuario y todos sus datos? Esta acción no se puede deshacer.')) return;
+  if (!confirm('¿Eliminar este usuario? Se borrarán su cuenta, sus rutas y sus órdenes. Sus recibos se CONSERVAN (quedan sin usuario asignado). No se puede deshacer.')) return;
   try {
-    await adminFetch('receipts?user_id=eq.'+currentEditUserId, { method:'DELETE' });
-    await adminFetch('routes?user_id=eq.'+currentEditUserId,   { method:'DELETE' });
-    await adminFetch('profiles?user_id=eq.'+currentEditUserId, { method:'DELETE' });
-    await adminAuthFetch('users/'+currentEditUserId+'/delete', {});
+    await adminUsersFn('delete_user', { user_id: currentEditUserId });
     toast('Usuario eliminado', 'ok');
     closeModal('modal-edit-user');
     loadUsers();
@@ -2274,32 +2271,9 @@ window.addEventListener('DOMContentLoaded', () => {
     o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('show'); });
   });
 
-  // Prompt de service key si no está configurada
-  if (!SB_SERVICE) {
-    const card = document.querySelector('.auth-card');
-    if (card) {
-      const hint = document.createElement('div');
-      hint.innerHTML = `
-        <details style="margin-top:14px">
-          <summary style="font-size:11px;color:var(--text2);cursor:pointer">Configurar Service Role Key</summary>
-          <div style="margin-top:8px">
-            <label style="font-size:11px;color:var(--text2);display:block;margin-bottom:4px">Service Role Key (Supabase → Settings → API)</label>
-            <input id="a-service-key" type="password" style="width:100%;padding:8px;font-size:12px;border:1px solid #e4e4e7;border-radius:6px;font-family:inherit" placeholder="eyJ...">
-            <p style="font-size:10px;color:#A32D2D;margin-top:4px">⚠ Mantén este archivo privado.</p>
-            <button onclick="saveServiceKey()" style="margin-top:8px;padding:6px 12px;background:#185FA5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">Guardar y recargar</button>
-          </div>
-        </details>`;
-      card.appendChild(hint);
-    }
-  }
+  // Si ya hay una sesión válida, entra directo (sin volver a pedir la contraseña)
+  restoreSession();
 });
-
-function saveServiceKey() {
-  const v = document.getElementById('a-service-key')?.value?.trim();
-  if(!v) return;
-  localStorage.setItem('tl_service_key', v);
-  location.reload();
-}
 </script>
 </body>
 </html>
