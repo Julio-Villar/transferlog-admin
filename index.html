@@ -207,7 +207,7 @@ body.rol-supervisor #nav-usuarios,body.rol-supervisor #nav-configuracion,body.ro
 /* Chart bar */
 .bar-chart{display:flex;flex-direction:column;gap:8px}
 .bar-row{display:flex;align-items:center;gap:10px;font-size:12px}
-.bar-label{width:80px;color:var(--text2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.bar-label{width:104px;color:var(--text2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
 .bar-track{flex:1;background:var(--bg);border-radius:4px;height:10px;overflow:hidden}
 .bar-fill{height:100%;border-radius:4px;background:var(--blue);transition:width .4s ease}
 .bar-fill.teal{background:var(--teal)}
@@ -445,7 +445,7 @@ body.rol-supervisor #nav-usuarios,body.rol-supervisor #nav-configuracion,body.ro
           <div class="card"><div class="card-title">Por chofer</div><div class="bar-chart" id="est-chofer"></div></div>
           <div class="card"><div class="card-title">Por usuario</div><div class="bar-chart" id="est-user"></div></div>
         </div>
-        <div class="card"><div class="card-title">Evolución mensual (monto)</div><div class="bar-chart" id="est-mes"></div></div>
+        <div class="card"><div class="card-title">Evolución por período de trabajo (monto)</div><div class="bar-chart" id="est-mes"></div></div>
       </div>
 
       <!-- ── REPORTES PDF ───────────────────────────── -->
@@ -553,6 +553,19 @@ body.rol-supervisor #nav-usuarios,body.rol-supervisor #nav-configuracion,body.ro
               <div style="font-size:11px;color:var(--text2);margin-top:4px">Se usa cuando la ruta no tiene una duración definida (se edita en Rutas globales).</div>
             </div>
             <button class="btn primary" onclick="saveAgendaSettings()"><i class="ti ti-device-floppy"></i> Guardar agenda</button>
+          </div>
+
+          <!-- Período de trabajo -->
+          <div class="card">
+            <div class="card-title"><i class="ti ti-calendar-event" style="color:#185FA5"></i> Período de trabajo</div>
+            <div class="field">
+              <label>Día en que comienza cada período (1 a 28)</label>
+              <input type="number" id="adm-period-day" placeholder="1" inputmode="numeric" min="1" max="28" oninput="updatePeriodPreview()">
+              <div style="font-size:11px;color:var(--text2);margin-top:4px">Si el período va del 20 al 19 del mes siguiente, ingresa 20. Con 1 se usa el mes calendario.</div>
+            </div>
+            <div id="adm-period-preview" style="background:var(--blue-l);color:#0C447C;border-radius:var(--rsm);padding:10px 12px;font-size:12px;margin-bottom:12px"></div>
+            <button class="btn primary" onclick="savePeriodSettings()"><i class="ti ti-device-floppy"></i> Guardar período</button>
+            <div style="font-size:11px;color:var(--text2);margin-top:8px;line-height:1.5">Afecta los totales del Dashboard de la app, el rango por defecto de resúmenes y reportes, y la evolución de Estadísticas. Los conductores lo ven al volver a abrir la app.</div>
           </div>
           <div class="card">
             <div class="card-title">Agregar dato frecuente</div>
@@ -859,6 +872,7 @@ async function enterPanel(session){
   document.getElementById('sb-rol').textContent = rol === 'admin' ? 'Administrador' : 'Supervisor';
   document.getElementById('auth-overlay').classList.remove('show');
   document.getElementById('app-layout').style.display = 'flex';
+  await loadPeriodCfg();
   initDateFilters();
   loadDashboard();
   loadUsersForSelects();
@@ -1007,10 +1021,9 @@ function refreshCurrentPage() {
 
 // ── Init fechas ───────────────────────────────────────────
 function initDateFilters() {
-  const today    = new Date().toISOString().split('T')[0];
-  const firstDay = today.substring(0,8) + '01';
-  ['r-from','e-from','rp-from','ru-from','re-from','o-from'].forEach(id => { const el=document.getElementById(id); if(el) el.value=firstDay });
-  ['r-to',  'e-to',  'rp-to',  'ru-to',  're-to', 'o-to' ].forEach(id => { const el=document.getElementById(id); if(el) el.value=today   });
+  const p = workPeriod(todayLocal(), _periodStart);   // período de trabajo vigente (Configuración)
+  ['r-from','e-from','rp-from','ru-from','re-from','o-from'].forEach(id => { const el=document.getElementById(id); if(el) el.value=p.from });
+  ['r-to',  'e-to',  'rp-to',  'ru-to',  're-to', 'o-to' ].forEach(id => { const el=document.getElementById(id); if(el) el.value=p.to   });
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────
@@ -1401,9 +1414,13 @@ async function loadEstadisticas() {
     const byUser={}; receipts.forEach(r=>{ const u=emailMap[r.user_id]||r.user_id?.substring(0,8)||'—'; byUser[u]=(byUser[u]||0)+Number(r.total||0); });
     renderBarChart('est-user', Object.fromEntries(Object.entries(byUser).sort((a,b)=>b[1]-a[1]).slice(0,8)), true);
 
-    // Evolución mensual
-    const byMes={}; receipts.forEach(r=>{ if(!r.fecha) return; const m=r.fecha.substring(0,7); byMes[m]=(byMes[m]||0)+Number(r.total||0); });
-    const mesSorted=Object.fromEntries(Object.entries(byMes).sort((a,b)=>a[0].localeCompare(b[0])));
+    // Evolución por período de trabajo (con inicio el día 1 equivale al mes calendario)
+    const byMes={}; receipts.forEach(r=>{ if(!r.fecha) return; const k=workPeriod(r.fecha,_periodStart).from; byMes[k]=(byMes[k]||0)+Number(r.total||0); });
+    const dm=s=>s.substring(8,10)+'/'+s.substring(5,7);
+    const mesSorted=Object.fromEntries(Object.entries(byMes).sort((a,b)=>a[0].localeCompare(b[0])).map(([from,v])=>{
+      const p=workPeriod(from,_periodStart);
+      return [_periodStart===1 ? from.substring(0,7) : dm(p.from)+' – '+dm(p.to), v];
+    }));
     renderBarChart('est-mes', mesSorted, true);
   } catch(e) { toast('Error: '+e.message,'err'); }
   setSyncBadge(false);
@@ -1691,6 +1708,8 @@ async function loadConfiguracion() {
     document.getElementById('adm-night-to').value    = sm.nightTo        || '06:00';
     document.getElementById('adm-buffer').value      = sm.bufferMin      !== undefined ? sm.bufferMin : '15';
     document.getElementById('adm-defdur').value      = sm.defaultDurationMin || '60';
+    document.getElementById('adm-period-day').value  = sm.periodStartDay || '1';
+    updatePeriodPreview();
 
     // Cargar catálogos
     await loadAdminCatalogs();
@@ -2263,6 +2282,43 @@ async function saveAgendaSettings(){
     await Promise.all([upsertSetting('bufferMin',buffer),upsertSetting('defaultDurationMin',defdur)]);
     toast('Configuración de agenda guardada ✓','ok');
   }catch(e){ toast('Error: '+e.message,'err'); }
+}
+
+// ══════════════════════════════════════════════════════════
+// PERÍODO DE TRABAJO (ej.: del 20 al 19 del mes siguiente)
+// ══════════════════════════════════════════════════════════
+let _periodStart = 1;   // día en que empieza cada período (1 = mes calendario)
+
+function workPeriod(todayStr, startDay){
+  const sd = Math.min(28, Math.max(1, Math.round(Number(startDay)) || 1));
+  const [y,m,d] = todayStr.split('-').map(Number);
+  const mi = d >= sd ? m-1 : m-2;                    // mes (base 0) en que empezó el período vigente
+  const iso = t => t.getUTCFullYear()+'-'+_p2(t.getUTCMonth()+1)+'-'+_p2(t.getUTCDate());
+  const from = new Date(Date.UTC(y,mi,sd)), nextFrom = new Date(Date.UTC(y,mi+1,sd));
+  return { from: iso(from), to: iso(new Date(nextFrom.getTime()-86400000)), startDay: sd };
+}
+async function loadPeriodCfg(){
+  try {
+    const r = await adminFetch('settings?key=eq.periodStartDay&select=value');
+    _periodStart = Math.min(28, Math.max(1, Math.round(Number(r[0] && r[0].value)) || 1));
+  } catch(e) { _periodStart = 1; }
+}
+function updatePeriodPreview(){
+  const el = document.getElementById('adm-period-preview'); if (!el) return;
+  const n = Number(document.getElementById('adm-period-day').value);
+  if (!Number.isInteger(n) || n < 1 || n > 28) { el.textContent = 'Ingresa un día entre 1 y 28'; return; }
+  const p = workPeriod(todayLocal(), n);
+  el.innerHTML = 'Período actual con este valor: <b>' + fmtDate(p.from) + '</b> al <b>' + fmtDate(p.to) + '</b>';
+}
+async function savePeriodSettings(){
+  const n = Number(document.getElementById('adm-period-day').value);
+  if (!Number.isInteger(n) || n < 1 || n > 28) { toast('Ingresa un día entre 1 y 28', 'err'); return; }
+  try {
+    await upsertSetting('periodStartDay', n);
+    _periodStart = n;
+    initDateFilters();                  // los filtros por defecto pasan al nuevo período
+    toast('Período de trabajo guardado ✓', 'ok');
+  } catch(e) { toast('Error: ' + e.message, 'err'); }
 }
 
 // Cerrar overlays al hacer click afuera
